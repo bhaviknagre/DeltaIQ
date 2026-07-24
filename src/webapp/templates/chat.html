@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Chat — {{ pid_a }} vs {{ pid_b }}{% endblock %}
+{% block content %}
+<h1>Grounded chat</h1>
+
+<form class="card form-card" id="pid-form" onsubmit="return false;">
+  <div class="field">
+    <label for="pid_a">PID A</label>
+    <select id="pid_a">
+      {% for p in pids %}<option value="{{ p.pid }}" {% if p.pid == pid_a %}selected{% endif %}>{{ p.pid }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="pid_b">PID B</label>
+    <select id="pid_b">
+      {% for p in pids %}<option value="{{ p.pid }}" {% if p.pid == pid_b %}selected{% endif %}>{{ p.pid }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="card">
+  <div id="chat-log" class="chat-log">
+    <div class="chat-msg chat-system">Ask about either revision or what changed between them. Every answer is grounded with citations back to a PID + location or a delta entry.</div>
+  </div>
+  <form id="chat-form" class="chat-input-row">
+    <input type="text" id="question" placeholder="e.g. What changed near tag 26-KA-902?" autocomplete="off" required />
+    <button type="submit" class="btn btn-primary">Ask</button>
+  </form>
+</div>
+
+<script src="/static/chat.js"></script>
+{% endblock %}

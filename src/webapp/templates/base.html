@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Document Delta & Grounded Chat{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">Document Delta &amp; Grounded Chat</a>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/chat">Chat</a>
+        <a href="/eval">Eval</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <span class="legend"><span class="dot red"></span> Red = critical &nbsp; <span class="dot yellow"></span> Yellow = review &nbsp; <span class="dot green"></span> Green = informational</span>
+  </footer>
+</body>
+</html>

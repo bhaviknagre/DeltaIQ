@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Delta: {{ pid_a }} → {{ pid_b }}{% endblock %}
+{% block content %}
+<h1>Delta: <code>{{ pid_a }}</code> &rarr; <code>{{ pid_b }}</code></h1>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Canonical representation — {{ pid_a }}</h3>
+    <div class="stat-grid">
+      <div class="stat"><span class="stat-value">{{ summary_a.pages }}</span><span class="stat-label">pages</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_a.elements }}</span><span class="stat-label">elements</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_a.tables }}</span><span class="stat-label">tables</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_a.dimensions }}</span><span class="stat-label">dimensions</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_a.tags }}</span><span class="stat-label">tags</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_a.notes }}</span><span class="stat-label">notes</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Canonical representation — {{ pid_b }}</h3>
+    <div class="stat-grid">
+      <div class="stat"><span class="stat-value">{{ summary_b.pages }}</span><span class="stat-label">pages</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_b.elements }}</span><span class="stat-label">elements</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_b.tables }}</span><span class="stat-label">tables</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_b.dimensions }}</span><span class="stat-label">dimensions</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_b.tags }}</span><span class="stat-label">tags</span></div>
+      <div class="stat"><span class="stat-value">{{ summary_b.notes }}</span><span class="stat-label">notes</span></div>
+    </div>
+  </div>
+</div>
+{% if summary_a.tables == 0 and summary_b.tables == 0 %}
+<p class="note">Tables: 0 — no adapter currently detects tabular regions (documented gap, not hidden).</p>
+{% endif %}
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Changes by kind</h3>
+    <div class="chart" id="chart-kind" data-chart='{{ chart_kind_json | safe }}' data-kind="bar" data-colors='{"added":"#22c55e","removed":"#ef4444","modified":"#f59e0b"}'></div>
+  </div>
+  <div class="card">
+    <h3>Criticality signal</h3>
+    <div class="chart" id="chart-crit" data-chart='{{ chart_crit_json | safe }}' data-kind="donut" data-colors='{"red":"#ef4444","yellow":"#f59e0b","green":"#22c55e"}'></div>
+    <p class="muted small">Avg confidence: {{ "%.2f"|format(avg_confidence) }} · {{ delta.unchanged_count }} unchanged elements</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row-between">
+    <h3>Delta report ({{ items|length }} changes)</h3>
+    <div class="btn-row">
+      <a class="btn" href="/report/markdown?pid_a={{ pid_a }}&pid_b={{ pid_b }}" target="_blank">Markdown</a>
+      <a class="btn" href="/report/json?pid_a={{ pid_a }}&pid_b={{ pid_b }}" target="_blank">JSON</a>
+      <a class="btn btn-primary" href="/markup/download?pid_a={{ pid_a }}&pid_b={{ pid_b }}">Download markup PDF</a>
+      <a class="btn" href="/chat?pid_a={{ pid_a }}&pid_b={{ pid_b }}">Ask about this delta &rarr;</a>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Signal</th><th>Kind</th><th>Category</th><th>Description</th><th>Confidence</th></tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><span class="chip chip-{{ item.criticality.value }}">{{ item.criticality.value }}</span></td>
+          <td>{{ item.change_kind.value }}</td>
+          <td>{{ item.category.value }}</td>
+          <td>{{ item.description }}</td>
+          <td>{{ "%.2f"|format(item.confidence) }}</td>
+        </tr>
+        {% endfor %}
+        {% if not items %}
+        <tr><td colspan="5" class="muted">No meaningful changes detected.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/static/charts.js"></script>
+{% endblock %}

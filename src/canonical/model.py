@@ -101,3 +101,26 @@ class CanonicalDocument(BaseModel):
             if e.id == element_id:
                 return e
         return None
+
+    def summary(self) -> dict:
+        """Canonical-representation summary used by the CLI/UI dashboard:
+        pages/elements/tables/dimensions counts. `tables` is honestly 0 for
+        every current adapter — ElementType.TABLE_CELL exists in the model
+        but no adapter currently detects tabular regions (see README "what
+        was cut") — this is not hidden or backfilled with a fake count."""
+        counts: dict[str, int] = {}
+        for e in self.all_elements():
+            counts[e.element_type.value] = counts.get(e.element_type.value, 0) + 1
+        return {
+            "pid": self.meta.pid,
+            "format": self.meta.format,
+            "revision_label": self.meta.revision_label,
+            "pages": len(self.pages),
+            "elements": len(self.all_elements()),
+            "tags": counts.get("tag", 0),
+            "dimensions": counts.get("dimension", 0),
+            "notes": counts.get("note", 0),
+            "tables": counts.get("table_cell", 0),
+            "text": counts.get("text", 0),
+            "geometry": counts.get("geometry", 0),
+        }

@@ -1,4 +1,4 @@
-.PHONY: setup samples seed run chat markup eval metrics test clean
+.PHONY: setup samples seed run chat markup eval metrics test clean ui docs docs-build
 
 VENV := .venv/bin
 PY := $(VENV)/python
@@ -36,6 +36,16 @@ metrics:
 
 test:
 	$(PY) -m pytest tests/ -v
+
+# Web UI: dashboard (delta + charts + RAG signal), chat, eval scorecard.
+ui: seed
+	$(VENV)/uvicorn src.webapp.app:app --reload --port 8000
+
+docs:
+	$(VENV)/mkdocs serve
+
+docs-build:
+	$(VENV)/mkdocs build
 
 clean:
 	rm -rf output logs/*.jsonl traces/*.json data/renders

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Document Delta{% endblock %}
+{% block content %}
+<h1>Compare two PID revisions</h1>
+<p class="muted">Pick two registered PIDs (revisions of the same document) to ingest, compute the delta, and render the report.</p>
+
+<form class="card form-card" method="post" action="/run">
+  <div class="field">
+    <label for="pid_a">PID A (base revision)</label>
+    <select name="pid_a" id="pid_a" required>
+      {% for p in pids %}
+        <option value="{{ p.pid }}" {% if 'demo-native-a' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="pid_b">PID B (revised)</label>
+    <select name="pid_b" id="pid_b" required>
+      {% for p in pids %}
+        <option value="{{ p.pid }}" {% if 'demo-native-b' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Run delta</button>
+</form>
+
+<h2>Registered PIDs</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>PID</th><th>Path</th><th>Revision label</th></tr></thead>
+    <tbody>
+      {% for p in pids %}
+      <tr><td><code>{{ p.pid }}</code></td><td class="muted">{{ p.path }}</td><td>{{ p.revision_label or "—" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if not pids %}
+<p class="muted">No PIDs registered yet — run <code>make seed</code> first.</p>
+{% endif %}
+{% endblock %}

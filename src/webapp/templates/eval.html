@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Eval Scorecard{% endblock %}
+{% block content %}
+<div class="row-between">
+  <h1>Evaluation scorecard</h1>
+  <form method="post" action="/eval/run"><button class="btn btn-primary" type="submit">Run new eval</button></form>
+</div>
+
+{% if not latest %}
+<p class="muted">No eval run yet. Click "Run new eval" (or <code>make eval</code>) to generate one.</p>
+{% else %}
+
+<div class="banner {{ 'banner-pass' if latest.passed else 'banner-fail' }}">
+  {{ "PASS" if latest.passed else "FAIL" }}
+</div>
+
+<div class="grid-3">
+  {% for name, d in latest.delta.items() %}
+  <div class="card">
+    <h3>Delta — {{ name }}</h3>
+    <div class="chart" data-kind="gauge" data-value="{{ d.f1 }}" data-label="F1"></div>
+    <div class="stat-grid stat-grid-3">
+      <div class="stat"><span class="stat-value">{{ "%.2f"|format(d.precision) }}</span><span class="stat-label">precision</span></div>
+      <div class="stat"><span class="stat-value">{{ "%.2f"|format(d.recall) }}</span><span class="stat-label">recall</span></div>
+      <div class="stat"><span class="stat-value">{{ "%.2f"|format(d.avg_confidence) }}</span><span class="stat-label">avg conf</span></div>
+    </div>
+    {% if d.ocr_accuracy is not none %}
+    <p class="muted small">OCR accuracy: {{ "%.1f"|format(d.ocr_accuracy * 100) }}%</p>
+    {% endif %}
+    <p class="muted small">
+      <span class="chip chip-red">{{ d.criticality_counts.red }}</span>
+      <span class="chip chip-yellow">{{ d.criticality_counts.yellow }}</span>
+      <span class="chip chip-green">{{ d.criticality_counts.green }}</span>
+    </p>
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <h3>Chat</h3>
+    <div class="chart" data-kind="gauge" data-value="{{ latest.chat.accuracy }}" data-label="accuracy"></div>
+    <div class="stat-grid stat-grid-3">
+      <div class="stat"><span class="stat-value">{{ "%.2f"|format(latest.chat.groundedness_rate) }}</span><span class="stat-label">groundedness</span></div>
+      <div class="stat"><span class="stat-value">{{ "%.2f"|format(latest.chat.citation_accuracy) }}</span><span class="stat-label">citation acc</span></div>
+      <div class="stat"><span class="stat-value">{{ latest.chat.model or "mock" }}</span><span class="stat-label">model</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-3">
+  <div class="card stat-card"><span class="stat-value">{{ "%.2f"|format(latest.chat.avg_latency_sec) }}s</span><span class="stat-label">avg latency / question</span></div>
+  <div class="card stat-card"><span class="stat-value">{{ "{:,}".format(latest.chat.total_tokens) }}</span><span class="stat-label">tokens used</span></div>
+  <div class="card stat-card"><span class="stat-value">${{ "%.4f"|format(latest.chat.total_cost_usd) }}</span><span class="stat-label">estimated cost</span></div>
+</div>
+
+<div class="card">
+  <h3>F1 / chat accuracy trend (last {{ history_json | length }} runs)</h3>
+  <div class="chart" id="chart-trend" data-kind="trend" data-history='{{ history_json | safe }}'></div>
+</div>
+
+<div class="card">
+  <h3>Chat failure table</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Question</th><th>Correct</th><th>Grounded</th></tr></thead>
+      <tbody>
+        {% for qa in latest.chat.per_qa %}
+        <tr class="{{ '' if qa.correct else 'row-fail' }}">
+          <td>{{ qa.id }}</td>
+          <td>{{ qa.question }}</td>
+          <td>{{ "yes" if qa.correct else "FAIL" }}</td>
+          <td>{{ "yes" if qa.grounded else "no" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/static/charts.js"></script>
+{% endif %}
+{% endblock %}
