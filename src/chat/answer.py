@@ -1,7 +1,7 @@
 """Grounded chat: retrieve -> prompt -> LLM -> parse citations.
 
 Every answer must cite specific sources using the exact bracketed citation
-labels handed to it in context (e.g. `[pid_a:demo-native-a@p0]` or
+labels handed to it in context (e.g. `[pid_a:26-9026-REV-A@p0]` or
 `[delta:mod-abc123-def456]`). If retrieval finds nothing above the
 confidence floor, the LLM is never even called — the system hedges
 directly, which is the cheapest and most reliable way to avoid

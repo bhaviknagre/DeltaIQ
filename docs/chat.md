@@ -29,6 +29,13 @@ because they're generally correct, not because they were needed to pass one test
   chunks don't crowd out the one delta-report entry that actually answers a
   "what changed" question.
 
+**Optional vector/hybrid retrieval**: `RETRIEVAL_BACKEND=vector` or `hybrid`
+(default `bm25`) route through a configured `VectorStore` (Chroma or
+Pinecone) instead of, or blended with (`HYBRID_BM25_WEIGHT`), BM25 — see
+[Data & infrastructure](infrastructure.md#storage-backends-srcstorage). Still
+opt-in: nothing about the grounding/refusal/citation behavior below changes
+based on which retrieval backend is active.
+
 ## Grounding & refusal (`src/chat/answer.py`)
 
 If retrieval finds nothing with real lexical overlap, the LLM is **never
@@ -62,7 +69,7 @@ never a code change.
 ## Example
 
 ```
-$ python -m src.cli chat demo-native-a demo-native-b -q "What changed with tag 26-KA-902?"
+$ python -m src.cli chat 26-9026-REV-A 26-9026-REV-B -q "What changed with tag 26-KA-902?"
 
 The tag '26-KA-902' was changed and moved to '26-KA-902B' and was moved 5.6pt
 [delta:mod-768f8edcbb84-ebfbd0945c2c].

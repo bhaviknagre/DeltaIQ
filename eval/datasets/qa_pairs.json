@@ -1,7 +1,7 @@
 {
-  "description": "Ground-truth Q&A over the demo-native-a/demo-native-b PID pair and its delta. Each entry's expected_keywords are checked case-insensitively against the produced answer; expect_hedge marks a deliberately unanswerable/adversarial question used to test refusal behavior instead of hallucination.",
-  "pid_a": "demo-native-a",
-  "pid_b": "demo-native-b",
+  "description": "Ground-truth Q&A over the 26-9026-REV-A/26-9026-REV-B PID pair and its delta. Each entry's expected_keywords are checked case-insensitively against the produced answer; expect_hedge marks a deliberately unanswerable/adversarial question used to test refusal behavior instead of hallucination.",
+  "pid_a": "26-9026-REV-A",
+  "pid_b": "26-9026-REV-B",
   "qa": [
     {
       "id": "qa-1",

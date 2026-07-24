@@ -35,7 +35,7 @@ from src.webapp.schemas import ChatRequest, ChatResponse, VersionResponse
 logger = get_logger("webapp")
 
 HERE = Path(__file__).resolve().parent
-app = FastAPI(title="Document Delta & Grounded Chat", version=__version__)
+app = FastAPI(title="DeltaIQ", version=__version__)
 app.add_middleware(RequestContextMiddleware)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 # Prometheus scrape target — see prometheus/prometheus.yml + grafana/ for the dashboard
@@ -147,8 +147,8 @@ def markup_download(pid_a: str, pid_b: str):
 def chat_page(request: Request, pid_a: str | None = None, pid_b: str | None = None):
     pids = _known_pids()
     if not pid_a or not pid_b:
-        pid_a = pid_a or "demo-native-a"
-        pid_b = pid_b or "demo-native-b"
+        pid_a = pid_a or "26-9026-REV-A"
+        pid_b = pid_b or "26-9026-REV-B"
     return templates.TemplateResponse(request, "chat.html", {"pid_a": pid_a, "pid_b": pid_b, "pids": pids})
 
 

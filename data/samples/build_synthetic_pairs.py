@@ -162,8 +162,8 @@ def build_scanned_pair() -> None:
 
 def write_ground_truth() -> None:
     gt = {
-        "pair_native": {"pid_a": "demo-native-a", "pid_b": "demo-native-b", "edits": EDITS},
-        "pair_scanned": {"pid_a": "demo-scanned-a", "pid_b": "demo-scanned-b", "edits": EDITS},
+        "pair_native": {"pid_a": "26-9026-REV-A", "pid_b": "26-9026-REV-B", "edits": EDITS},
+        "pair_scanned": {"pid_a": "26-9026-REV-A-SCAN", "pid_b": "26-9026-REV-B-SCAN", "edits": EDITS},
         "provenance": {
             "source": "export_gas_compressor.pdf (real, supplied P&ID export sheet)",
             "method": "PyMuPDF redact+reinsert on the native PDF text layer to produce Rev B "

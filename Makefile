@@ -22,16 +22,16 @@ seed:
 
 # Reproducible run: ingest the demo native-PDF pair, compute the delta, write the report.
 run: seed
-	$(PY) -m src.cli run demo-native-a demo-native-b --out-dir output/native
+	$(PY) -m src.cli run 26-9026-REV-A 26-9026-REV-B --out-dir output/native
 
 run-scanned: seed
-	$(PY) -m src.cli run demo-scanned-a demo-scanned-b --out-dir output/scanned
+	$(PY) -m src.cli run 26-9026-REV-A-SCAN 26-9026-REV-B-SCAN --out-dir output/scanned
 
 chat: seed
-	$(PY) -m src.cli chat demo-native-a demo-native-b
+	$(PY) -m src.cli chat 26-9026-REV-A 26-9026-REV-B
 
 markup: seed
-	$(PY) -m src.cli markup demo-native-a demo-native-b --out output/native/markup.pdf
+	$(PY) -m src.cli markup 26-9026-REV-A 26-9026-REV-B --out output/native/markup.pdf
 
 eval:
 	$(PY) -m eval.run_eval

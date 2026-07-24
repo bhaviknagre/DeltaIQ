@@ -47,6 +47,14 @@ counts, and cost, so grounding is visible in the UI, not just in logs.
   `run_delta_eval()` / `run_chat_eval()` functions `make eval` does — the UI
   never has its own separate scoring logic to drift out of sync.
 
+## Infra status (`/infra`)
+
+Live probes against every backend this deployment is configured to use —
+Mongo, Redis, Celery (via Redis), Chroma/Pinecone — reporting not just "is it
+configured" but "is it reachable right now." Any connection string rendered
+on this page goes through `redact_uri()` first; see
+[Data & infrastructure](infrastructure.md#credential-handling).
+
 ## Design notes
 
 - **In-memory caching**: `src/webapp/app.py` caches ingested documents,

@@ -8,6 +8,92 @@ The single source of truth for the current version is `src/_version.py`;
 `python -m src.cli --version`, the web UI footer, and `GET /api/version` all
 read from it. Every release here has a matching annotated git tag.
 
+## [2.1.0] — 2026-07-25
+
+### Added
+- **Kubernetes manifests** (`k8s/`): namespace, api/worker/redis/chroma/minio/
+  monitoring/flower deployments+services, an HPA (CPU+memory, the applied
+  default) plus a ready-but-uninstalled KEDA `ScaledObject` alternative
+  (scales on Redis list length), an nginx ingress, and a `secrets.yaml`
+  template with `REPLACE_ME` placeholders only. Creation-only — validated
+  offline, not deployed to a live cluster.
+- **GCP Terraform IaC** (`terraform/`): GKE cluster (Workload Identity,
+  autoscaling node pool), Artifact Registry, IAM, custom VPC + Memorystore
+  Redis, Secret Manager (containers only, no values), a versioned GCS bucket.
+  No remote state backend configured — local state only, no `.tfstate`
+  committed, matching the "create the IaC, don't deploy" scope.
+- **`scripts/checks/check_k8s.py`** (`make check-k8s`): offline `kubeconform`
+  schema validation across every `k8s/**/*.yaml`, including the KEDA CRD via
+  the community CRDs-catalog schema; also asserts the secrets template holds
+  only placeholders (checks for real-key-shaped strings like `sk-ant-`/`gsk_`)
+  and that MinIO/Grafana deployments pull credentials via `secretKeyRef`.
+  Wired into `check_all.py` / `make check`.
+- Product renamed to **DeltaIQ** across the web UI, FastAPI app title, and
+  Grafana dashboard; sample PID identifiers renamed from placeholder
+  `demo-native-a/b` to realistic engineering revision codes
+  (`26-9026-REV-A/B`) across docs, tests, and fixtures.
+
+### Fixed
+- **Credential redaction**: `MONGODB_URI`/`REDIS_URL` (which can carry a
+  password) were being logged in full at every connection
+  (`metadata_store.py`, `blob_store.py`) and rendered directly into the
+  `/infra` status page's HTML — never committed to git, but a real leak into
+  log files, terminal scrollback, and the browser regardless. Added
+  `src/config.py::redact_uri()` and applied it at every call site that logs
+  or displays either setting (`metadata_store.py`, `blob_store.py`,
+  `session_store.py`, all three `/infra` probes). Regression test:
+  `tests/test_config_redact_uri.py` (synthetic fixture credentials only).
+
+## [2.0.0] — 2026-07-24
+
+### Added
+- **Production data/infra stack, opt-in**: `MetadataStore` (`JsonFileMetadataStore`
+  default, `MongoMetadataStore` real option — 6 collections), `BlobStore`
+  (`LocalDiskBlobStore` default, `MinioBlobStore`/`MongoGridFSBlobStore` real
+  options), `VectorStore` (`NullVectorStore` default, `ChromaVectorStore`/
+  `PineconeVectorStore` real options), and a Redis-backed `ChatSessionStore`
+  (6h TTL, cache-aside, in-memory fallback). Every real backend falls back to
+  its zero-infra default with a logged warning if it can't connect.
+- **Optional vector/hybrid retrieval** (`RETRIEVAL_BACKEND=bm25|vector|hybrid`):
+  a new `Embedder` interface (`HashingEmbedder` — deterministic, offline,
+  hashing-trick; `OpenAIEmbedder` — real semantic embeddings) feeding the new
+  `VectorStore`s; BM25 stays the default for this tag/code-dominated corpus.
+- **Background jobs** (`src/tasks/`): Celery (Redis broker+backend),
+  `ingest_and_delta`/`render_markup`/`run_eval` tasks mirroring lifecycle into
+  `MetadataStore.processing_jobs`; `CELERY_TASK_ALWAYS_EAGER` for synchronous
+  in-process execution without a live worker. `make worker` / `make flower`.
+- **API schemas + request middleware** (`src/webapp/schemas.py`,
+  `src/webapp/middleware.py`): Pydantic models for `/api/chat` (previously a
+  raw dict, so a missing field surfaced as an unhandled 500 instead of a 422);
+  `RequestContextMiddleware` for `X-Request-ID` propagation, per-request
+  timing, and Prometheus counters/histograms mounted at `/metrics`.
+- **Prometheus + Grafana, opt-in**: `prometheus/alerts.yml` (5 alert rules:
+  `DeltaChatDown`, `HighHTTPErrorRate`, `HighRequestLatencyP95`,
+  `LLMCallErrorRateHigh`, `RequestErrorRateHigh`) and a 9-panel Grafana
+  dashboard (`grafana/provisioning/dashboards/delta-chat.json`) covering
+  request rate/errors, span p95, LLM tokens/cost, and delta criticality.
+- **Langfuse, opt-in**: LLM-call tracing alongside the existing homegrown
+  tracer; no-op if unconfigured.
+- **Real DVC pipeline** (`dvc.yaml`/`dvc.lock`): `samples` → `eval` stages,
+  params tracked in `params.yaml`, a local-filesystem remote
+  (`.dvc/config` → `.dvc-local-remote/`). `make dvc-repro` / `dvc-dag` /
+  `dvc-metrics`.
+- `docker-compose.yml` profiles for the new stack: `full` (mongo, redis,
+  minio, chroma, prometheus, grafana) and `worker` (celery-worker, flower).
+- `/infra` web UI page: live reachability probes (not just "is it
+  configured") against Mongo, Redis, Celery-via-Redis, and the configured
+  vector store.
+
+### Fixed
+- Pinecone upserts above ~1000 vectors/request returned a 400 — found during
+  live key verification; batched at 100 vectors per request.
+- `docker-compose.yml` MinIO credentials were hardcoded rather than reading
+  `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` from `.env` — one value now feeds both
+  the Python app and the MinIO container's root credentials.
+- Full-project audit: a gap in the Grafana dashboard's panel-to-metric
+  mapping, a stale docstring, and a DVC remote that had drifted out of sync
+  with `dvc.lock`.
+
 ## [1.1.0] — 2026-07-24
 
 ### Added

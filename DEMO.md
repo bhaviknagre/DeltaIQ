@@ -3,7 +3,7 @@
 No screen recording — this file is the fallback the assignment explicitly allows.
 Every command below is copy-pasteable and reproduces exactly what's shown.
 
-Sample pair used: `demo-native-a` / `demo-native-b`, a synthesized Rev A -> Rev B
+Sample pair used: `26-9026-REV-A` / `26-9026-REV-B`, a synthesized Rev A -> Rev B
 of a real supplied P&ID (`data/samples/raw/export_gas_compressor.pdf`), with 6
 authored edits — see `data/samples/ground_truth.json` and the README's "Sample
 data & provenance" section.
@@ -12,7 +12,7 @@ data & provenance" section.
 
 ```bash
 make setup && make samples
-python -m src.cli run demo-native-a demo-native-b --out-dir output/native
+python -m src.cli run 26-9026-REV-A 26-9026-REV-B --out-dir output/native
 ```
 
 ```
@@ -25,10 +25,10 @@ Trace: traces/96199291-826e-46f9-ba98-3fe29d8f54b5.json
 `output/native/delta_report.md`:
 
 ```
-# Delta Report: demo-native-a -> demo-native-b
+# Delta Report: 26-9026-REV-A -> 26-9026-REV-B
 
-- **PID A**: `demo-native-a`
-- **PID B**: `demo-native-b`
+- **PID A**: `26-9026-REV-A`
+- **PID B**: `26-9026-REV-B`
 - **Elements compared**: 695 (A) vs 696 (B)
 - **Unchanged**: 691
 - **Changes**: 6 total (2 added, 1 removed, 3 modified)
@@ -51,7 +51,7 @@ assertion of this).
 ## 2. Bonus: delta markup overlay
 
 ```bash
-python -m src.cli markup demo-native-a demo-native-b --out output/native/markup.pdf
+python -m src.cli markup 26-9026-REV-A 26-9026-REV-B --out output/native/markup.pdf
 ```
 
 Redline boxes drawn directly onto PID B's actual page — amber `MOD` for
@@ -67,7 +67,7 @@ all boxed exactly where they are on the real drawing.
 ## 3. Grounded chat exchange
 
 ```bash
-python -m src.cli chat demo-native-a demo-native-b \
+python -m src.cli chat 26-9026-REV-A 26-9026-REV-B \
   -q "What changed with tag 26-KA-902, and was anything removed near the closed drain?"
 ```
 
@@ -77,13 +77,13 @@ extractive answer over retrieved, cited context, not a generated one]
 Question: What changed with tag 26-KA-902, and was anything removed near the closed drain?
 Most relevant retrieved evidence:
 - [delta:rem-2f812c6ac76f] removed text: Text removed: 'TO CLOSED DRAIN'
-- [pid_a:demo-native-a@p0] TO CLOSED DRAIN
+- [pid_a:26-9026-REV-A@p0] TO CLOSED DRAIN
 - [delta:mod-768f8edcbb84-ebfbd0945c2c] modified tag: Changed and moved: '26-KA-902' -> '26-KA-902B' (moved 5.6pt)
-- [pid_a:demo-native-a@p0] 26-KA-902
-- [pid_b:demo-native-b@p0] 26-KA-902
+- [pid_a:26-9026-REV-A@p0] 26-KA-902
+- [pid_b:26-9026-REV-B@p0] 26-KA-902
 - [delta:add-761de8b05f02] added tag: New tag added: '26-PSV-9099'
-- [pid_a:demo-native-a@p0] TAG NUMBER
-- [pid_b:demo-native-b@p0] TAG NUMBER
+- [pid_a:26-9026-REV-A@p0] TAG NUMBER
+- [pid_b:26-9026-REV-B@p0] TAG NUMBER
 
 (grounded=True, citations=8, model=mock, cost=$0.000000)
 ```

@@ -1,9 +1,14 @@
-# Document Delta & Grounded Chat
+# DeltaIQ
 
-Given two PIDs (revisions of the same engineering document), this system ingests
+Given two PIDs (revisions of the same engineering document), DeltaIQ ingests
 both regardless of format, computes a structured delta, renders a human- and
 machine-readable delta report, and answers questions over both revisions and the
 delta with citations.
+
+📖 Full documentation: **[bhaviknagre.github.io/DeltaIQ](https://bhaviknagre.github.io/DeltaIQ/)**
+(MkDocs Material — architecture diagrams, the production data/infra stack,
+Kubernetes & Terraform, observability, evaluation, and an output reference
+with real captured output). `make docs` serves the same site locally.
 
 ## Quickstart
 
@@ -17,6 +22,14 @@ make markup    # bonus: redline overlay PDF
 make eval      # scorecard: delta P/R/F1 + chat correctness/groundedness/citation accuracy
 make test      # unit + integration tests
 make docs      # MkDocs documentation site, served locally
+```
+
+Everything above runs with **zero infrastructure** — a JSON file, local disk,
+and BM25. A real data/infra stack (MongoDB, Redis/Celery, Chroma/Pinecone,
+MinIO, Prometheus/Grafana) is opt-in on top of the same code path:
+
+```bash
+make infra-up   # docker compose --profile full up -d — see "Data & infrastructure"
 ```
 
 Or via Docker (also installs tesseract, so it sidesteps the local OCR dependency):
@@ -198,8 +211,76 @@ sites.
 - **Metrics**: `make metrics` (`observability/metrics.py`) reduces over
   `traces/*.json` — request counts, error counts, avg/p95 latency, total
   tokens/cost, avg retrieval hits, avg delta count, grouped by request kind.
-  Satisfies "inspectable metrics" without standing up Prometheus/Grafana; those
-  are named as future work if this needed to run continuously in prod.
+  Satisfies "inspectable metrics" with zero running services.
+- **Prometheus/Grafana (opt-in)**: `src/webapp/middleware.py`
+  (`RequestContextMiddleware`) records per-request Prometheus counters/
+  histograms (route-template-labeled, not raw URL, to bound cardinality);
+  `prometheus_client.make_asgi_app()` is mounted at `/metrics`.
+  `make infra-up` starts Prometheus (`:9090`, 5 alert rules in
+  `prometheus/alerts.yml`) and Grafana (`:3000`, a 9-panel dashboard in
+  `grafana/provisioning/dashboards/delta-chat.json`) for continuous
+  monitoring — genuinely wired up now, not a placeholder. See
+  [docs/observability.md](docs/observability.md).
+- **Langfuse (opt-in)**: `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` add
+  LLM-call tracing to Langfuse on top of the homegrown tracer; no-op if
+  unset.
+
+## Data & infrastructure
+
+Every backend below is opt-in — the system runs with zero infrastructure by
+default (a JSON manifest, local disk, BM25), and each real backend falls back
+to its zero-infra default with a logged warning if it can't connect.
+
+| Interface | Zero-infra default | Real backend(s) | Env var |
+|---|---|---|---|
+| `MetadataStore` | `JsonFileMetadataStore` | `MongoMetadataStore` (6 collections) | `METADATA_STORE=json\|mongo` |
+| `BlobStore` | `LocalDiskBlobStore` | `MinioBlobStore`, `MongoGridFSBlobStore` | `BLOB_STORE=local\|minio\|mongo_gridfs` |
+| `VectorStore` | `NullVectorStore` | `ChromaVectorStore`, `PineconeVectorStore` | `VECTOR_STORE=none\|chroma\|pinecone` |
+| Retrieval | BM25 | vector (via `VectorStore`) or hybrid (weighted blend) | `RETRIEVAL_BACKEND=bm25\|vector\|hybrid` |
+| Chat sessions | in-memory dict | Redis, 6h TTL, cache-aside over `MetadataStore` | `REDIS_URL` |
+| Background jobs | — | Celery (Redis broker+backend): `ingest_and_delta`, `render_markup`, `run_eval` — `CELERY_TASK_ALWAYS_EAGER=true` runs them synchronously | `make worker` / `make flower` (`:5555`) |
+
+```bash
+make infra-up   # docker compose --profile full up -d
+# mongo:27017  redis:6379  minio:9000 (console :9001)  chroma:8100  prometheus:9090  grafana:3000
+```
+
+**DVC pipeline** (`dvc.yaml`): `samples` → `eval` stages, tracked params in
+`params.yaml`, reproducible via `make dvc-repro` / `dvc dag` / `dvc metrics show`.
+The configured remote is local-filesystem (`.dvc/config` →
+`.dvc-local-remote/`) — a real DVC remote, just not a cloud one, matching the
+"opt-in infra, nothing required to run" posture throughout this project.
+
+**Credential handling**: `mongodb_uri`/`redis_url` can carry a password.
+Every call site that logs or displays either (`blob_store.py`,
+`metadata_store.py`, `session_store.py`, the `/infra` web UI page) passes it
+through `src/config.py::redact_uri()` first — `user:pass@` becomes `***:***@`
+before it ever reaches a log line or a browser. Regression-tested in
+`tests/test_config_redact_uri.py` against synthetic fixture credentials, not
+real ones.
+
+Full backend matrix, config, and rationale: [docs/infrastructure.md](docs/infrastructure.md).
+
+## Deployment: Kubernetes & Terraform
+
+**Creation-only, not deployed** — both layers are written and validated
+offline; neither has touched a live cluster or a real GCP project.
+
+- **Kubernetes** (`k8s/`): namespace, api/worker/redis/chroma/minio/monitoring/
+  flower manifests, an HPA (2–8 / 2–10 replicas, the applied default) plus a
+  ready-but-uninstalled KEDA `ScaledObject` alternative, an nginx ingress, and
+  a secrets template where every value is `REPLACE_ME`. Validated offline via
+  `make check-k8s` (`kubeconform` schema validation across all manifests,
+  including the KEDA CRD — never `kubectl apply`, never a live cluster; also
+  asserts the secrets template holds no real-key-shaped strings).
+- **Terraform** (`terraform/`): GKE cluster (Workload Identity, autoscaling
+  node pool), Artifact Registry, IAM, custom VPC + Memorystore Redis, Secret
+  Manager (containers only, no values — kept out of `.tfstate` on purpose), a
+  versioned GCS bucket. No remote state backend configured; no `.tfstate`
+  anywhere in the repo — `terraform plan` against a real project is the
+  honest way to verify this without provisioning anything.
+
+Full manifest/resource inventory: [docs/deployment.md](docs/deployment.md).
 - **Failure visibility**: a span that raises records `status="error"` +
   the exception on the trace file, then re-raises — errors are traced, not
   swallowed. (`pytesseract.TesseractNotFoundError`, unknown PIDs, and unparseable
@@ -317,16 +398,22 @@ vanilla-SVG charts — no CDN/chart-library dependency, works offline):
   return 200, chat returns real Groq-generated grounded answers with correct
   citations, and a live eval run produces a genuine PASS from real numbers
   (`tests/test_webapp.py`).
+- **Infra status** (`/infra`): live reachability probes (not just "is it
+  configured") against every backend this deployment points at — Mongo,
+  Redis, Celery-via-Redis, Chroma/Pinecone. Any connection string shown here
+  goes through `redact_uri()` first (see "Data & infrastructure").
 
 Demo-scope simplification, stated plainly: ingested documents/deltas/indexes
 are cached in an in-process dict keyed by `(pid_a, pid_b)` so page navigation
 doesn't re-run OCR/alignment every request — a real deployment would back
 this with a proper cache/store, not a process dict.
 
-**Documentation site** (`docs/`, `mkdocs.yml`, mkdocs-material theme):
+**Documentation site** (`docs/`, `mkdocs.yml`, mkdocs-material theme,
+published at [bhaviknagre.github.io/DeltaIQ](https://bhaviknagre.github.io/DeltaIQ/)):
 architecture (with request-flow diagrams), format support, delta engine +
-criticality signal, grounded chat, observability, evaluation, the web UI, and
-an [output reference](docs/output-reference.md) page documenting the exact
+criticality signal, grounded chat, data & infrastructure, Kubernetes &
+Terraform deployment, observability, evaluation, the web UI, and an
+[output reference](docs/output-reference.md) page documenting the exact
 shape of every artifact this system produces — populated with real captured
 output, not placeholder numbers.
 
@@ -356,11 +443,6 @@ Regenerate both with `make samples` (`python -m data.samples.build_synthetic_pai
   would need the ODA File Converter or Autodesk SDK as an external
   dependency/service. Built a real DXF adapter behind the identical interface
   instead, so the seam is proven even though the binary format isn't.
-- **Embedding-based retrieval** — BM25 chosen deliberately for a
-  tag/code-dominated corpus (see "Grounded chat"); embeddings would help
-  paraphrase queries (the qa-6 failure above) at the cost of needing an
-  embedding API key and losing full offline determinism. Straightforward to
-  add as a second retriever behind the same `RetrievalIndex.search` interface.
 - **Hungarian/optimal bipartite alignment** — greedy scoring used instead;
   documented trade-off in `delta/align.py`, not a silent shortcut.
 - **Multi-page/multi-sheet delta continuity** (e.g. tracking an element that
@@ -371,18 +453,29 @@ Regenerate both with `make samples` (`python -m data.samples.build_synthetic_pai
   scoring uses a keyword+groundedness heuristic instead, with a documented
   limitation section above rather than an unvalidated judge presented as ground
   truth.
-- **Prometheus+Grafana** — `make metrics` (JSON reduction over trace files)
-  plus the web UI's eval screen chosen instead; sufficient for a single local
-  run, explicitly insufficient for continuous production monitoring.
+- **GCS blob-storage backend** — `terraform/storage.tf` provisions the GCS
+  bucket, but `src/storage/blob_store.py` only implements local disk, MinIO,
+  and MongoDB GridFS; a `GcsBlobStore` behind the same `BlobStore` interface
+  is straightforward but not yet written.
 - **Table-cell extraction** — `ElementType.TABLE_CELL` exists in the canonical
   model but no adapter currently detects tabular regions; neither sample
   document has a clear table region to validate against.
+- **Kubernetes/Terraform actually deployed** — both are creation-only (see
+  "Deployment"); genuinely runnable (`make check-k8s`, `terraform plan`), but
+  neither has touched a live cluster or a real GCP project.
+
+**Now built, previously listed here as cut**: embedding-based retrieval
+(`RETRIEVAL_BACKEND=vector`/`hybrid`, `Embedder`/`VectorStore` interfaces —
+still optional, BM25 stays the tag/code-dominated-corpus default) and
+Prometheus/Grafana (`make infra-up` — see "Observability") — both landed in
+v2.0.0.
 
 ## What's next with more time
 
-1. Embedding-based (or hybrid BM25+embedding) retrieval to close the paraphrase
-   gap found in eval, with retrieval-quality metrics (MRR/recall@k) added to
-   the scorecard.
+1. Close the paraphrase-query gap the eval harness measures (qa-6) with a
+   real semantic embedder (`OpenAIEmbedder` is already wired for this;
+   `RETRIEVAL_BACKEND=vector`/`hybrid` just isn't the default yet), plus
+   retrieval-quality metrics (MRR/recall@k) added to the scorecard.
 2. A validated LLM-judge for chat correctness once a real key is available,
    cross-checked against the current heuristic scorer to see where they
    disagree.
@@ -394,6 +487,9 @@ Regenerate both with `make samples` (`python -m data.samples.build_synthetic_pai
 6. OCR quality: try layout-aware OCR (e.g. a vision-LLM pass) as a second
    ScannedPdfAdapter strategy and compare precision against Tesseract on the
    same ground truth, rather than assuming one wins.
+7. `GcsBlobStore` to match the GCS bucket Terraform already provisions.
+8. Actually apply the Terraform and deploy the Kubernetes manifests to a real
+   GKE cluster, replacing `REPLACE_ME` secrets with real Secret Manager values.
 
 ## Config
 

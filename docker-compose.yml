@@ -21,7 +21,7 @@ services:
     command: >
       sh -c "python -m data.samples.build_synthetic_pairs &&
              python -m scripts.seed_pids &&
-             python -m src.cli run demo-native-a demo-native-b --out-dir output/native"
+             python -m src.cli run 26-9026-REV-A 26-9026-REV-B --out-dir output/native"
 
   chat:
     build: .
@@ -33,7 +33,7 @@ services:
       - ./traces:/app/traces
     stdin_open: true
     tty: true
-    command: python -m src.cli chat demo-native-a demo-native-b
+    command: python -m src.cli chat 26-9026-REV-A 26-9026-REV-B
     profiles: ["chat"]
 
   eval:

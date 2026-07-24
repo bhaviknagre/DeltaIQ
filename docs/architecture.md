@@ -62,3 +62,12 @@ covering ingest → delta → retrieve → LLM call → answer.
   (`FormatAdapter`), LLM providers (`LLMProvider`), and even the delta report
   renderer are single-interface, multi-implementation — see
   [Ingestion](formats.md) and [Grounded chat](chat.md).
+
+## Production topology (opt-in)
+
+The diagram above holds regardless of which storage/retrieval backends are
+configured — `MetadataStore`, `BlobStore`, `VectorStore`, and the retrieval
+backend (BM25/vector/hybrid) are each swapped via one `.env` variable, with a
+zero-infra default in every case. See [Data & infrastructure](infrastructure.md)
+for the full backend matrix, and [Deployment](deployment.md) for the
+Kubernetes/Terraform layer this runs on in production.

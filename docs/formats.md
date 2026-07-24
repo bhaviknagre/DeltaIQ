@@ -47,7 +47,8 @@ alone can't tell them apart.
 ## PID resolution (`src/ingest/pid_store.py`)
 
 A PID is resolved to bytes + metadata via a flat JSON manifest
-(`data/pid_store/pids.json`, `pid -> {path, revision_label}`), then dispatched
-to whichever registered adapter's `sniff()` matches. A real deployment would
-swap the manifest for a database/object-store lookup — the `resolve_pid()` /
-`load()` interface wouldn't change.
+(`data/pid_store/pids.json`, `pid -> {path, revision_label}`) by default, then
+dispatched to whichever registered adapter's `sniff()` matches.
+`METADATA_STORE=mongo` and `BLOB_STORE=minio`/`mongo_gridfs` swap this for a
+real database/object-store lookup behind the same `resolve_pid()` / `load()`
+interface — see [Data & infrastructure](infrastructure.md).

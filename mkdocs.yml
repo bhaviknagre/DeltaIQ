@@ -1,4 +1,4 @@
-site_name: Document Delta & Grounded Chat
+site_name: Delta Docs
 site_description: Format-agnostic document delta engine + grounded chat over PID revisions
 repo_url: https://github.com/bhaviknagre/DeltaIQ
 repo_name: bhaviknagre/DeltaIQ
@@ -25,11 +25,13 @@ theme:
     - navigation.tabs
     - navigation.top
     - navigation.instant
+    - navigation.tracking
     - content.code.copy
     - search.suggest
     - toc.follow
 
 markdown_extensions:
+  - attr_list
   - admonition
   - tables
   - toc:
@@ -48,6 +50,8 @@ nav:
   - Ingestion & formats: formats.md
   - Delta engine & criticality: delta-engine.md
   - Grounded chat: chat.md
+  - Data & infrastructure: infrastructure.md
+  - Deployment (Kubernetes & Terraform): deployment.md
   - Observability: observability.md
   - Evaluation: eval.md
   - Web UI: ui.md

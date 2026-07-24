@@ -58,7 +58,30 @@ recorded exactly like this — nothing silently disappeared:
 }
 ```
 
-Any tooling choice here is a trade-off, stated in the README under "what was
-cut": a served dashboard / Prometheus+Grafana is explicitly named as future
-work if this needed to run continuously in production rather than as a local,
-per-run inspectable system.
+## Prometheus & Grafana (opt-in)
+
+The homegrown tracer above is the default and requires no running service.
+For continuous production monitoring, `src/webapp/middleware.py` also
+records two Prometheus metrics on every HTTP request
+(`deltachat_http_requests_total`, `deltachat_http_request_duration_seconds`,
+labeled by method/route-template/status — the route *template*, not the raw
+URL, to keep cardinality bounded), and `prometheus_client.make_asgi_app()` is
+mounted at `/metrics`. `src/observability/prometheus_metrics.py` adds
+request/error counts, span durations, LLM token/cost counters, and delta
+items by criticality.
+
+```bash
+make infra-up   # docker compose --profile full up -d — starts prometheus:9090, grafana:3000
+```
+
+`prometheus/prometheus.yml` scrapes `/metrics` every 15s;
+`prometheus/alerts.yml` defines 5 alerts: `DeltaChatDown`,
+`HighHTTPErrorRate`, `HighRequestLatencyP95`, `LLMCallErrorRateHigh`,
+`RequestErrorRateHigh`. `grafana/provisioning/dashboards/delta-chat.json`
+(titled "DeltaIQ") ships 9 panels covering request rate/errors, span p95,
+LLM tokens/cost, delta items by criticality, and grounded-vs-ungrounded LLM
+calls — every panel query maps to a metric actually emitted above.
+
+See [Data & infrastructure](infrastructure.md) for the full opt-in backend
+list this sits alongside (Mongo/Chroma/Pinecone/MinIO/Redis/Celery), and
+[Deployment](deployment.md) for how Prometheus/Grafana run in Kubernetes.

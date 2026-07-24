@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Document Delta{% endblock %}
+{% block title %}Dashboard — DeltaIQ{% endblock %}
 {% block content %}
 <h1>Compare two PID revisions</h1>
 <p class="muted">Pick two registered PIDs (revisions of the same document) to ingest, compute the delta, and render the report.</p>
@@ -9,7 +9,7 @@
     <label for="pid_a">PID A (base revision)</label>
     <select name="pid_a" id="pid_a" required>
       {% for p in pids %}
-        <option value="{{ p.pid }}" {% if 'demo-native-a' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
+        <option value="{{ p.pid }}" {% if '26-9026-REV-A' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
       {% endfor %}
     </select>
   </div>
@@ -17,7 +17,7 @@
     <label for="pid_b">PID B (revised)</label>
     <select name="pid_b" id="pid_b" required>
       {% for p in pids %}
-        <option value="{{ p.pid }}" {% if 'demo-native-b' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
+        <option value="{{ p.pid }}" {% if '26-9026-REV-B' == p.pid %}selected{% endif %}>{{ p.pid }} — {{ p.revision_label or "no label" }}</option>
       {% endfor %}
     </select>
   </div>

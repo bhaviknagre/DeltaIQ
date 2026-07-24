@@ -2,7 +2,7 @@
 
 !!! note "On the numbers below"
     Every JSON/output block on this page is **real output from this system**,
-    captured from `demo-native-a` / `demo-native-b` (a synthesized Rev A → Rev
+    captured from `26-9026-REV-A` / `26-9026-REV-B` (a synthesized Rev A → Rev
     B of a real supplied P&ID — see `data/samples/build_synthetic_pairs.py`).
     They are not placeholder or hypothetical numbers. Where a field is
     honestly `0` or lower than you might expect (e.g. `tables: 0`, OCR
@@ -15,7 +15,7 @@
 
 ```json
 {
-  "pid": "demo-native-a",
+  "pid": "26-9026-REV-A",
   "format": "pdf_native",
   "revision_label": "Rev A",
   "pages": 1,
@@ -76,7 +76,7 @@ match method per item.
 ## 4. Chat output
 
 ```
-$ python -m src.cli chat demo-native-a demo-native-b \
+$ python -m src.cli chat 26-9026-REV-A 26-9026-REV-B \
     -q "What changed with tag 26-KA-902, and was anything removed near the closed drain?"
 
 The tag '26-KA-902' was changed to '26-KA-902B' [delta:mod-768f8edcbb84-ebfbd0945c2c].
