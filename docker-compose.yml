@@ -1,4 +1,11 @@
 services:
+  # --- Core app services (zero extra infra required) ---
+  # These use the zero-infra defaults (JSON metadata store, local-disk blobs,
+  # BM25 retrieval, no Celery) unless you also set METADATA_STORE=mongo /
+  # BLOB_STORE=minio / RETRIEVAL_BACKEND=vector|hybrid in .env AND bring up
+  # the `full` profile below — every backend in src/storage/ falls back
+  # gracefully (with a logged warning) if its real infra isn't reachable, so
+  # setting those env vars without the infra running doesn't break anything.
   delta-chat:
     build: .
     env_file:
@@ -40,3 +47,116 @@ services:
       - ./eval/results:/app/eval/results
     command: python -m eval.run_eval
     profiles: ["eval"]
+
+  ui:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./traces:/app/traces
+      - ./eval/results:/app/eval/results
+    command: uvicorn src.webapp.app:app --host 0.0.0.0 --port 8000
+    profiles: ["ui"]
+
+  # --- Full production-shaped infra stack (opt-in: --profile full) ---
+  # Ports are published to the host, so this works identically whether the
+  # app runs inside this same compose network or natively on the host
+  # (`make ui` etc. against localhost:*) — exactly how each backend was
+  # developed and verified in this project (see src/storage/*.py docstrings).
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    profiles: ["full"]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    profiles: ["full"]
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # web console
+    volumes:
+      - minio-data:/data
+    profiles: ["full"]
+
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - "8100:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    profiles: ["full"]
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles: ["full"]
+
+  grafana:
+    image: grafana/grafana-oss
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    profiles: ["full"]
+
+  # --- Background workers (opt-in: --profile worker; needs redis) ---
+  celery-worker:
+    build: .
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./traces:/app/traces
+    command: celery -A src.tasks.celery_app worker --loglevel=info --concurrency=2
+    depends_on:
+      - redis
+    profiles: ["worker"]
+
+  flower:
+    build: .
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    command: celery -A src.tasks.celery_app flower --port=5555
+    depends_on:
+      - redis
+    profiles: ["worker"]
+
+volumes:
+  mongo-data:
+  redis-data:
+  minio-data:
+  chroma-data:
+  grafana-data:

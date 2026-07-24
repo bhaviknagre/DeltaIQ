@@ -1,0 +1,83 @@
+{
+  "title": "Document Delta & Grounded Chat",
+  "uid": "delta-chat-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate by kind",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (kind) (rate(deltachat_requests_total[5m]))", "legendFormat": "{{kind}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Request error rate by kind",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum by (kind) (rate(deltachat_request_errors_total[5m]))", "legendFormat": "{{kind}} errors" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Span duration p95 (seconds)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (span_name, le) (rate(deltachat_span_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{span_name}} p95"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "LLM tokens/sec by provider + direction",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (provider, direction) (rate(deltachat_llm_tokens_total[5m]))",
+          "legendFormat": "{{provider}} {{direction}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Estimated LLM cost (USD, cumulative)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "sum by (provider) (deltachat_llm_cost_usd_total)", "legendFormat": "{{provider}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Delta items by criticality (cumulative)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "sum by (criticality) (deltachat_delta_items_total)", "legendFormat": "{{criticality}}" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "LLM calls: grounded vs ungrounded",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum by (provider, grounded) (rate(deltachat_llm_calls_total[5m]))",
+          "legendFormat": "{{provider}} grounded={{grounded}}"
+        }
+      ]
+    }
+  ]
+}

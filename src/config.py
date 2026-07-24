@@ -41,6 +41,54 @@ class Settings:
     # --- Retrieval ---
     retrieval_top_k: int = _i("RETRIEVAL_TOP_K", 8)
     retrieval_min_score: float = _f("RETRIEVAL_MIN_SCORE", 0.05)
+    # bm25 (lexical, default, zero infra) | vector (chroma/pinecone) | hybrid (both, blended)
+    retrieval_backend: str = os.environ.get("RETRIEVAL_BACKEND", "bm25")
+    hybrid_bm25_weight: float = _f("HYBRID_BM25_WEIGHT", 0.5)  # remainder goes to vector score
+
+    # --- Embeddings (for the vector store) ---
+    embedder: str = os.environ.get("EMBEDDER", "hashing")  # hashing (offline, default) | openai
+    hashing_embedder_dim: int = _i("HASHING_EMBEDDER_DIM", 256)
+
+    # --- Vector store: segregates embeddings from metadata/blobs ---
+    vector_store: str = os.environ.get("VECTOR_STORE", "chroma")  # chroma | pinecone | none
+    chroma_persist_dir: Path = ROOT / "data" / "chroma"
+    chroma_host: str | None = os.environ.get("CHROMA_HOST")  # set to use a remote/server-mode Chroma instead of embedded
+    chroma_port: int = _i("CHROMA_PORT", 8100)
+    pinecone_api_key: str | None = os.environ.get("PINECONE_API_KEY")
+    pinecone_index_name: str = os.environ.get("PINECONE_INDEX_NAME", "delta-chat")
+
+    # --- Metadata store: segregates PID/document/delta/eval metadata from
+    # the vector store and from raw file bytes. JSON is the zero-infra
+    # default (identical to the original pid_store.json behavior); Mongo is
+    # the real, production-shaped option. ---
+    metadata_store: str = os.environ.get("METADATA_STORE", "json")  # json | mongo
+    mongodb_uri: str = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
+    mongodb_db_name: str = os.environ.get("MONGODB_DB_NAME", "delta_chat")
+
+    # --- Blob store: raw PDF/DXF bytes at rest. Local disk is the default
+    # (documents already live under data/samples/ as real files); GridFS is
+    # the option for when documents arrive as bytes rather than paths on
+    # disk (e.g. uploaded via an API), keeping large binaries out of Mongo's
+    # regular document collections. ---
+    blob_store: str = os.environ.get("BLOB_STORE", "local")  # local | minio | mongo_gridfs
+    blob_store_dir: Path = ROOT / "data" / "blobs"
+    minio_endpoint: str = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
+    minio_access_key: str = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
+    minio_secret_key: str = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
+    minio_bucket: str = os.environ.get("MINIO_BUCKET", "delta-chat")
+    minio_secure: bool = os.environ.get("MINIO_SECURE", "").lower() in ("1", "true")
+
+    # --- Background tasks (Celery + Redis) ---
+    redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    # Runs tasks synchronously in-process instead of dispatching to a worker
+    # — used by check scripts/tests so task *logic* is verified even with no
+    # live Celery worker running, without special-casing test code.
+    celery_task_always_eager: bool = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("1", "true")
+
+    # --- LLM observability (Langfuse) ---
+    langfuse_public_key: str | None = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    langfuse_secret_key: str | None = os.environ.get("LANGFUSE_SECRET_KEY")
+    langfuse_host: str = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
     # --- OCR ---
     ocr_dpi: int = _i("OCR_DPI", 300)
@@ -76,3 +124,5 @@ settings = Settings()
 settings.logs_dir.mkdir(parents=True, exist_ok=True)
 settings.traces_dir.mkdir(parents=True, exist_ok=True)
 settings.pid_store_path.parent.mkdir(parents=True, exist_ok=True)
+settings.chroma_persist_dir.mkdir(parents=True, exist_ok=True)
+settings.blob_store_dir.mkdir(parents=True, exist_ok=True)

@@ -15,6 +15,7 @@ from src.canonical.model import BoundingBox, CanonicalDocument, Element, Element
 from src.delta.align import MOVED_POSITION_EPS, AlignmentResult, MatchedPair, align
 from src.delta.criticality import Criticality, classify_criticality
 from src.observability.logging import get_logger, log_event
+from src.observability.prometheus_metrics import DELTA_ITEMS_TOTAL, DELTA_RUNS_TOTAL
 
 logger = get_logger("delta.engine")
 
@@ -166,4 +167,9 @@ def compute_delta(doc_a: CanonicalDocument, doc_b: CanonicalDocument) -> DeltaRe
         pid_a=result.pid_a, pid_b=result.pid_b,
         total_changes=len(items), unchanged=unchanged, **result.counts_by_kind(),
     )
+
+    DELTA_RUNS_TOTAL.inc()
+    for criticality, count in result.counts_by_criticality().items():
+        DELTA_ITEMS_TOTAL.labels(criticality=criticality).inc(count)
+
     return result

@@ -16,7 +16,9 @@ from dataclasses import dataclass, field
 from src.chat.index import Chunk, RetrievalIndex
 from src.chat.llm import LLMProvider, get_provider
 from src.config import settings
+from src.observability.langfuse_tracing import log_llm_generation
 from src.observability.logging import get_logger, log_event
+from src.observability.prometheus_metrics import LLM_CALLS_TOTAL, LLM_COST_USD_TOTAL, LLM_TOKENS_TOTAL
 from src.observability.tracing import Trace
 
 logger = get_logger("chat.answer")
@@ -76,7 +78,11 @@ def answer_question(
         span.attrs["top_score"] = hits[0][1] if hits else 0.0
 
     if not hits:
-        log_event(logger, 30, "no_grounding_evidence", query=query)
+        # INFO, not WARNING: refusing to answer an ungrounded question is the
+        # system working correctly (see chat/answer.py module docstring —
+        # this is the cheapest, most reliable way to avoid hallucinating),
+        # not an anomaly worth flagging.
+        log_event(logger, 20, "no_grounding_evidence", query=query)
         with trace.span("answer", grounded=False):
             pass
         return AnswerResult(
@@ -90,7 +96,14 @@ def answer_question(
 
     try:
         with trace.span("llm_call", provider=provider.name) as span:
-            resp = provider.complete(SYSTEM_PROMPT, user_prompt)
+            with log_llm_generation(
+                "chat_answer", model=provider.name, input_text=user_prompt, metadata={"query": query}
+            ) as generation:
+                resp = provider.complete(SYSTEM_PROMPT, user_prompt)
+                generation.finish(
+                    output=resp.text, input_tokens=resp.input_tokens,
+                    output_tokens=resp.output_tokens, cost_usd=resp.cost_usd,
+                )
             span.attrs.update(
                 {
                     "model": resp.model,
@@ -99,6 +112,9 @@ def answer_question(
                     "cost_usd": resp.cost_usd,
                 }
             )
+            LLM_TOKENS_TOTAL.labels(provider=provider.name, direction="input").inc(resp.input_tokens)
+            LLM_TOKENS_TOTAL.labels(provider=provider.name, direction="output").inc(resp.output_tokens)
+            LLM_COST_USD_TOTAL.labels(provider=provider.name).inc(resp.cost_usd)
     except Exception as exc:  # noqa: BLE001 - provider call is the one network-dependent, arbitrarily-failing step
         # The span above already recorded status="error" + the exception on the
         # trace file before re-raising (see observability/tracing.py) — this is
@@ -117,6 +133,7 @@ def answer_question(
 
     citations_used = [m.group(0) for m in CITATION_RE.finditer(resp.text)]
     grounded = len(citations_used) > 0 and "don't have grounded evidence" not in resp.text.lower()
+    LLM_CALLS_TOTAL.labels(provider=provider.name, grounded=str(grounded)).inc()
 
     with trace.span("answer", grounded=grounded, num_citations=len(citations_used)):
         pass

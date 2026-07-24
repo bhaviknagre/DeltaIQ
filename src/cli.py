@@ -16,7 +16,7 @@ import click
 
 from src._version import __version__
 from src.chat.answer import answer_question
-from src.chat.index import build_index
+from src.chat.vector_index import build_retriever
 from src.delta.engine import compute_delta
 from src.delta.report import write_report
 from src.ingest.pid_store import load, register_pid, resolve_pid
@@ -75,7 +75,7 @@ def chat(pid_a: str, pid_b: str, question: str | None):
     doc_a = load(pid_a)
     doc_b = load(pid_b)
     delta = compute_delta(doc_a, doc_b)
-    index = build_index(doc_a, doc_b, delta)
+    index = build_retriever(doc_a, doc_b, delta)
     click.echo(f"Ready. {len(delta.items)} changes indexed. Ask questions about {pid_a}, {pid_b}, or the delta.\n")
 
     def _ask(q: str):

@@ -7,9 +7,15 @@ Usage: python -m scripts.checks.check_webapp
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 from scripts.checks._common import CheckSuite
+
+# Upstream library noise, not ours: Starlette's TestClient currently warns
+# about a future httpx->httpx2 migration on import. Harmless and out of our
+# control — filtered so it doesn't read like a problem in check output.
+warnings.filterwarnings("ignore", message=r".*httpx.*deprecated.*")
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 NATIVE_A = ROOT / "data" / "samples" / "pair_native" / "rev_a.pdf"

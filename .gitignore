@@ -12,3 +12,7 @@ data/pid_store/pids.json
 *.egg-info/
 .DS_Store
 site/
+.dvc-local-remote/
+data/chroma/
+data/pid_store/cache/
+data/blobs/

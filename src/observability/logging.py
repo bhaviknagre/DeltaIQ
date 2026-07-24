@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -63,6 +64,12 @@ def get_logger(name: str) -> logging.Logger:
 
     stream_handler = logging.StreamHandler(sys.stderr)
     stream_handler.setFormatter(JsonFormatter())
+    # QUIET_CONSOLE_LOGS (set by scripts/checks/_common.py by default) keeps
+    # routine INFO-level noise off the terminal during check runs — everything
+    # still goes to logs/app.jsonl in full. Real CLI/webapp usage is
+    # unaffected unless this env var is set explicitly.
+    if os.environ.get("QUIET_CONSOLE_LOGS"):
+        stream_handler.setLevel(logging.WARNING)
     logger.addHandler(stream_handler)
 
     logger.propagate = False

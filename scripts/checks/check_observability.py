@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from scripts.checks._common import CheckSuite
+from scripts.checks._common import CheckSuite, expected_failure
 
 
 def main() -> None:
@@ -33,15 +33,16 @@ def main() -> None:
 
     with suite.check("a span error is captured on the trace, then re-raised (not swallowed)"):
         request_id = None
-        try:
-            with new_trace(kind="check_observability") as trace:
-                request_id = trace.request_id
-                with trace.span("failing_step"):
-                    raise ValueError("simulated failure")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("expected the span error to re-raise")
+        with expected_failure("a span deliberately raises, to verify it's captured and re-raised, not swallowed"):
+            try:
+                with new_trace(kind="check_observability") as trace:
+                    request_id = trace.request_id
+                    with trace.span("failing_step"):
+                        raise ValueError("simulated failure")
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("expected the span error to re-raise")
         trace_path = settings.traces_dir / f"{request_id}.json"
         payload = json.loads(trace_path.read_text())
         assert payload["has_error"] is True

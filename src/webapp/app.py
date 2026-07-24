@@ -16,11 +16,12 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from prometheus_client import make_asgi_app
 
 from src._version import __version__
 from src.canonical.model import CanonicalDocument
 from src.chat.answer import answer_question
-from src.chat.index import RetrievalIndex, build_index
+from src.chat.vector_index import build_retriever
 from src.config import settings
 from src.delta.engine import DeltaResult, compute_delta
 from src.delta.report import to_markdown
@@ -34,6 +35,9 @@ logger = get_logger("webapp")
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="Document Delta & Grounded Chat", version=__version__)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
+# Prometheus scrape target — see prometheus.yml + grafana/ for the dashboard
+# that reads these exact deltachat_* metric names (observability/prometheus_metrics.py).
+app.mount("/metrics", make_asgi_app())
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 templates.env.globals["app_version"] = __version__
 
@@ -43,7 +47,7 @@ templates.env.globals["app_version"] = __version__
 # dict — documented as a scope simplification, not hidden.
 _doc_cache: dict[str, CanonicalDocument] = {}
 _delta_cache: dict[tuple[str, str], DeltaResult] = {}
-_index_cache: dict[tuple[str, str], RetrievalIndex] = {}
+_index_cache: dict[tuple[str, str], object] = {}  # whichever retriever RETRIEVAL_BACKEND selects
 
 
 def _get_doc(pid: str) -> CanonicalDocument:
@@ -59,10 +63,10 @@ def _get_delta(pid_a: str, pid_b: str) -> DeltaResult:
     return _delta_cache[key]
 
 
-def _get_index(pid_a: str, pid_b: str) -> RetrievalIndex:
+def _get_index(pid_a: str, pid_b: str):
     key = (pid_a, pid_b)
     if key not in _index_cache:
-        _index_cache[key] = build_index(_get_doc(pid_a), _get_doc(pid_b), _get_delta(pid_a, pid_b))
+        _index_cache[key] = build_retriever(_get_doc(pid_a), _get_doc(pid_b), _get_delta(pid_a, pid_b))
     return _index_cache[key]
 
 
@@ -84,10 +88,14 @@ def run(pid_a: str = Form(...), pid_b: str = Form(...)):
 
 @app.get("/results", response_class=HTMLResponse)
 def results(request: Request, pid_a: str, pid_b: str):
-    with new_trace(kind="ui_results", pid_a=pid_a, pid_b=pid_b):
-        doc_a = _get_doc(pid_a)
-        doc_b = _get_doc(pid_b)
-        delta = _get_delta(pid_a, pid_b)
+    with new_trace(kind="ui_results", pid_a=pid_a, pid_b=pid_b) as trace:
+        with trace.span("ingest_a", pid=pid_a):
+            doc_a = _get_doc(pid_a)
+        with trace.span("ingest_b", pid=pid_b):
+            doc_b = _get_doc(pid_b)
+        with trace.span("delta") as span:
+            delta = _get_delta(pid_a, pid_b)
+            span.attrs["total_changes"] = len(delta.items)
 
     items = sorted(delta.items, key=lambda it: {"red": 0, "yellow": 1, "green": 2}[it.criticality.value])
 
@@ -143,10 +151,21 @@ def chat_page(request: Request, pid_a: str | None = None, pid_b: str | None = No
 
 @app.post("/api/chat")
 def api_chat(payload: dict):
+    import uuid
+
     pid_a, pid_b, question = payload["pid_a"], payload["pid_b"], payload["question"]
+    session_id = payload.get("session_id") or str(uuid.uuid4())
     index = _get_index(pid_a, pid_b)
-    with new_trace(kind="ui_chat", pid_a=pid_a, pid_b=pid_b, question=question) as trace:
+    with new_trace(kind="ui_chat", pid_a=pid_a, pid_b=pid_b, question=question, session_id=session_id) as trace:
         result = answer_question(question, index, trace)
+
+    from src.storage.session_store import get_session_store
+
+    get_session_store().append_turn(
+        session_id, question, result.answer, pid_a=pid_a, pid_b=pid_b,
+        grounded=result.grounded, model=result.model, request_id=trace.request_id,
+    )
+
     return JSONResponse(
         {
             "answer": result.answer,
@@ -157,8 +176,16 @@ def api_chat(payload: dict):
             "input_tokens": result.input_tokens,
             "output_tokens": result.output_tokens,
             "request_id": trace.request_id,
+            "session_id": session_id,
         }
     )
+
+
+@app.get("/api/chat/session/{session_id}")
+def api_chat_session(session_id: str):
+    from src.storage.session_store import get_session_store
+
+    return JSONResponse(get_session_store().get_history(session_id))
 
 
 @app.get("/eval", response_class=HTMLResponse)

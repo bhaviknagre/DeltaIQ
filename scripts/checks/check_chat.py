@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.checks._common import CheckSuite
+from scripts.checks._common import CheckSuite, expected_failure
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 NATIVE_A = ROOT / "data" / "samples" / "pair_native" / "rev_a.pdf"
@@ -27,8 +27,9 @@ def main() -> None:
         return
 
     from src.chat.answer import answer_question
-    from src.chat.index import build_index
     from src.chat.llm import get_provider
+    from src.chat.vector_index import build_retriever
+    from src.config import settings
     from src.delta.engine import compute_delta
     from src.ingest.pid_store import load, register_pid
     from src.observability.tracing import new_trace
@@ -38,10 +39,10 @@ def main() -> None:
     doc_a = load("check-chat-a")
     doc_b = load("check-chat-b")
     delta = compute_delta(doc_a, doc_b)
-    index = build_index(doc_a, doc_b, delta)
+    index = build_retriever(doc_a, doc_b, delta)
 
     provider = get_provider()
-    print(f"  using LLM provider: {provider.name}")
+    print(f"  using LLM provider: {provider.name}, retrieval backend: {settings.retrieval_backend} ({type(index).__name__})")
 
     with suite.check("grounded answer + citation for an answerable question"):
         with new_trace(kind="check_chat") as trace:
@@ -63,8 +64,9 @@ def main() -> None:
             def complete(self, system, user):
                 raise RuntimeError("simulated outage")
 
-        with new_trace(kind="check_chat") as trace:
-            result = answer_question("What changed with tag 26-KA-902?", index, trace, provider=BoomProvider())
+        with expected_failure("provider deliberately raises, to verify the request degrades instead of crashing"):
+            with new_trace(kind="check_chat") as trace:
+                result = answer_question("What changed with tag 26-KA-902?", index, trace, provider=BoomProvider())
         assert not result.grounded
         assert "provider call failed" in result.answer.lower()
 

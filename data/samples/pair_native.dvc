@@ -1,0 +1,6 @@
+outs:
+- md5: f9fd87162a90428a7f4eda93208618c4.dir
+  size: 1186944
+  nfiles: 2
+  hash: md5
+  path: pair_native

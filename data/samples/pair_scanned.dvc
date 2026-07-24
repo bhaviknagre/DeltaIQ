@@ -1,0 +1,6 @@
+outs:
+- md5: 36ec51d7bb9a59956ecf417a88a202cb.dir
+  size: 104498172
+  nfiles: 2
+  hash: md5
+  path: pair_scanned

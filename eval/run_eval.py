@@ -24,7 +24,7 @@ from pathlib import Path
 
 from eval.metrics import ChatScore, score_chat_answer, score_delta, score_ocr_accuracy
 from src.chat.answer import answer_question
-from src.chat.index import build_index
+from src.chat.vector_index import build_retriever
 from src.delta.engine import compute_delta
 from src.ingest.pid_store import load
 from src.observability.tracing import new_trace
@@ -88,7 +88,7 @@ def run_chat_eval() -> dict:
     doc_a = load(qa_spec["pid_a"])
     doc_b = load(qa_spec["pid_b"])
     delta = compute_delta(doc_a, doc_b)
-    index = build_index(doc_a, doc_b, delta)
+    index = build_retriever(doc_a, doc_b, delta)
 
     chat_score = ChatScore()
     latencies_ms: list[float] = []

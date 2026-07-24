@@ -5,6 +5,16 @@
   const pidA = document.getElementById("pid_a");
   const pidB = document.getElementById("pid_b");
 
+  // One session id per browser tab (sessionStorage, not localStorage —
+  // a fresh tab is a fresh chat session). Sent with every /api/chat call so
+  // the server can cache/persist multi-turn history (Redis-fronted,
+  // Mongo-backed — see src/storage/session_store.py).
+  let sessionId = sessionStorage.getItem("deltachat_session_id");
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    sessionStorage.setItem("deltachat_session_id", sessionId);
+  }
+
   function addMsg(cls, html) {
     const div = document.createElement("div");
     div.className = "chat-msg " + cls;
@@ -32,9 +42,10 @@
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pid_a: pidA.value, pid_b: pidB.value, question }),
+        body: JSON.stringify({ pid_a: pidA.value, pid_b: pidB.value, question, session_id: sessionId }),
       });
       const data = await resp.json();
+      if (data.session_id) sessionId = data.session_id;
       const citations = (data.citations || [])
         .filter((c, i, arr) => arr.indexOf(c) === i)
         .map((c) => `<span class="chat-citation">${escapeHtml(c)}</span>`)

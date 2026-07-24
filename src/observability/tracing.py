@@ -28,6 +28,12 @@ from pathlib import Path
 
 from src.config import settings
 from src.observability.logging import get_logger, get_request_id, set_request_id
+from src.observability.prometheus_metrics import (
+    REQUEST_ERRORS_TOTAL,
+    REQUESTS_TOTAL,
+    SPAN_DURATION_SECONDS,
+    SPAN_ERRORS_TOTAL,
+)
 
 logger = get_logger("observability.tracing")
 
@@ -78,10 +84,12 @@ class Trace:
                 f"span_error:{name}",
                 extra={"extra_fields": {"span": name, "error": s.error, "trace": traceback.format_exc()}},
             )
+            SPAN_ERRORS_TOTAL.labels(span_name=name).inc()
             raise
         finally:
             s.end = time.time()
             s.duration_ms = round((s.end - s.start) * 1000, 3)
+            SPAN_DURATION_SECONDS.labels(span_name=name).observe(s.end - s.start)
             logger.info(
                 f"span_end:{name}",
                 extra={"extra_fields": {"span": name, "duration_ms": s.duration_ms, "status": s.status}},
@@ -104,6 +112,11 @@ class Trace:
         }
         out = Path(settings.traces_dir) / f"{self.request_id}.json"
         out.write_text(json.dumps(payload, indent=2, default=str))
+
+        REQUESTS_TOTAL.labels(kind=self.kind).inc()
+        if payload["has_error"]:
+            REQUEST_ERRORS_TOTAL.labels(kind=self.kind).inc()
+
         return payload
 
 

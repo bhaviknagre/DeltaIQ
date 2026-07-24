@@ -1,6 +1,7 @@
 .PHONY: setup samples seed run chat markup eval metrics test clean ui docs docs-build \
         check check-fast check-env check-ingestion check-delta check-report check-retrieval \
-        check-observability check-chat check-webapp check-eval check-docs version
+        check-observability check-chat check-webapp check-eval check-docs check-storage \
+        check-tasks check-metrics check-dvc version worker flower infra-up infra-down infra-logs
 
 VENV := .venv/bin
 PY := $(VENV)/python
@@ -91,8 +92,39 @@ check-eval: seed
 check-docs:
 	$(PY) -m scripts.checks.check_docs
 
+check-storage:
+	$(PY) -m scripts.checks.check_storage
+
+check-tasks: seed
+	$(PY) -m scripts.checks.check_tasks
+
+check-metrics: seed
+	$(PY) -m scripts.checks.check_metrics
+
+check-dvc:
+	$(PY) -m scripts.checks.check_dvc
+
 version:
 	@$(PY) -c "from src._version import __version__; print(__version__)"
+
+# --- Infra (MongoDB, Redis, MinIO, Chroma, Prometheus, Grafana) ---
+# Opt-in: the app runs with zero-infra defaults without any of this.
+infra-up:
+	docker compose --profile full up -d
+	@echo "mongo:27017  redis:6379  minio:9000 (console :9001)  chroma:8100  prometheus:9090  grafana:3000"
+
+infra-down:
+	docker compose --profile full down
+
+infra-logs:
+	docker compose --profile full logs -f
+
+# Celery worker / Flower — needs Redis (`make infra-up`, or a local redis-server).
+worker:
+	$(VENV)/celery -A src.tasks.celery_app worker --loglevel=info --concurrency=2
+
+flower:
+	$(VENV)/celery -A src.tasks.celery_app flower --port=5555
 
 clean:
 	rm -rf output logs/*.jsonl traces/*.json data/renders site

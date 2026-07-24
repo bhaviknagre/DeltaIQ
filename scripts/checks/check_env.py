@@ -16,6 +16,8 @@ from scripts.checks._common import CheckSuite
 REQUIRED_PACKAGES = [
     "fitz", "pytesseract", "PIL", "rapidfuzz", "rank_bm25", "pydantic",
     "click", "ezdxf", "anthropic", "openai", "fastapi", "uvicorn", "jinja2",
+    "pymongo", "chromadb", "pinecone", "minio", "redis", "celery", "flower",
+    "prometheus_client", "langfuse", "numpy", "dvc",
 ]
 
 

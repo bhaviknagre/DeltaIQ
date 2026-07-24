@@ -11,7 +11,14 @@ doesn't replace `make test` (pytest unit/integration tests) or `make eval`
 something" pass across every subsystem, including ones pytest doesn't cover
 (the web UI's live routes, the docs site build).
 
-Usage: python -m scripts.check_all [--skip-slow]
+By default, output is just PASS/FAIL/timing per sub-check — routine INFO-
+level logging (ingest_start, delta_computed, ...) is quieted, and the two
+checks that deliberately trigger a failure (to verify it's handled, not to
+report a real bug) silence that specific block too, both clearly labeled.
+Full detail is always still written to logs/app.jsonl and traces/*.json.
+Pass --verbose to see everything on the console as well.
+
+Usage: python -m scripts.check_all [--skip-slow] [--verbose] [--traceback]
 """
 
 from __future__ import annotations
@@ -33,8 +40,12 @@ CHECKS = [
     ("scripts.checks.check_delta_report", "Delta report + markup", False),
     ("scripts.checks.check_retrieval", "Retrieval (BM25 index)", False),
     ("scripts.checks.check_observability", "Observability (tracing/logs)", False),
+    ("scripts.checks.check_storage", "Storage (Mongo/Redis/MinIO/vector)", False),
+    ("scripts.checks.check_metrics", "Prometheus metrics", False),
+    ("scripts.checks.check_dvc", "DVC data versioning", False),
     ("scripts.checks.check_chat", "Grounded chat", False),
     ("scripts.checks.check_webapp", "Web UI (FastAPI routes)", False),
+    ("scripts.checks.check_tasks", "Background tasks (Celery)", True),
     ("scripts.checks.check_eval", "Eval harness", True),
     ("scripts.checks.check_docs", "MkDocs site build", True),
 ]
@@ -46,12 +57,14 @@ def main() -> None:
 
     print(f"Running {len(CHECKS)} subsystem checks{' (skipping slow ones)' if skip_slow else ''}...\n")
 
+    passthrough = [a for a in ("--verbose", "--traceback") if a in sys.argv]
+
     for module, label, slow in CHECKS:
         if slow and skip_slow:
             print(f"\n== {label} == (skipped, --skip-slow)")
             continue
         start = time.time()
-        proc = subprocess.run([sys.executable, "-m", module], cwd=ROOT)
+        proc = subprocess.run([sys.executable, "-m", module, *passthrough], cwd=ROOT)
         elapsed = time.time() - start
         results.append((label, proc.returncode == 0, elapsed))
 
