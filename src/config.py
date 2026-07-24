@@ -23,11 +23,13 @@ def _i(name: str, default: int) -> int:
 
 class Settings:
     # --- LLM ---
-    llm_provider: str = os.environ.get("LLM_PROVIDER", "anthropic")  # anthropic | openai | mock
+    llm_provider: str = os.environ.get("LLM_PROVIDER", "anthropic")  # anthropic | openai | groq | mock
     anthropic_api_key: str | None = os.environ.get("ANTHROPIC_API_KEY")
     openai_api_key: str | None = os.environ.get("OPENAI_API_KEY")
+    groq_api_key: str | None = os.environ.get("GROQ_API_KEY")  # free tier, no card required: console.groq.com
     anthropic_model: str = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5")
     openai_model: str = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    groq_model: str = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
     llm_max_tokens: int = _i("LLM_MAX_TOKENS", 1024)
     llm_temperature: float = _f("LLM_TEMPERATURE", 0.0)
 
@@ -62,6 +64,10 @@ class Settings:
         "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
         "gpt-4o": {"input": 2.5, "output": 10.0},
+        # Groq's free developer tier bills $0 within its rate limits; entries
+        # reflect that, not their separate paid/enterprise pricing.
+        "llama-3.3-70b-versatile": {"input": 0.0, "output": 0.0},
+        "llama-3.1-8b-instant": {"input": 0.0, "output": 0.0},
         "mock": {"input": 0.0, "output": 0.0},
     }
 

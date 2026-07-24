@@ -145,15 +145,23 @@ system prompt requires every claim to end with the exact bracketed citation
 label it came from; `chat/answer.py` parses those citations back out and flags
 an answer "grounded" only if it actually contains ≥1 real citation.
 
-**LLM provider** (`chat/llm.py`): one `LLMProvider` interface, three
-implementations — Anthropic, OpenAI, and a `MockProvider`. No key was available
-in the environment this was built in, so `LLM_PROVIDER` defaults to whichever
-provider *has* a key configured, and falls back to `MockProvider` if neither
-does. The mock is not a fake generative model — it extracts and lists the
+**LLM provider** (`chat/llm.py`): one `LLMProvider` interface, four
+implementations — Anthropic, OpenAI, Groq, and a `MockProvider`. No key was
+available in the environment this was built in, so `LLM_PROVIDER` defaults to
+whichever provider *has* a key configured, and falls back to `MockProvider` if
+none does. The mock is not a fake generative model — it extracts and lists the
 retrieved, cited context verbatim, clearly labeled `[MOCK LLM]`, so `make eval`
 / `make chat` stay honestly runnable offline for grading. Set
-`ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (+`LLM_PROVIDER`) in `.env` to get real
-generated answers — no code changes needed.
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY` (+`LLM_PROVIDER`) in
+`.env` to get real generated answers — no code changes needed.
+
+**Free option**: Groq's free developer tier (console.groq.com/keys, no credit
+card) is genuinely free within its rate limits. `GroqProvider` is just
+`OpenAIProvider` pointed at Groq's OpenAI-compatible endpoint
+(`https://api.groq.com/openai/v1`) with a free open model
+(`llama-3.3-70b-versatile`) — no separate integration code, same
+citations/grounding/tracing behavior as the paid providers. Set
+`LLM_PROVIDER=groq` + `GROQ_API_KEY` in `.env`.
 
 ## Observability
 

@@ -82,11 +82,11 @@ class AnthropicProvider(LLMProvider):
 class OpenAIProvider(LLMProvider):
     name = "openai"
 
-    def __init__(self):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None):
         from openai import OpenAI
 
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
+        self.client = OpenAI(api_key=api_key or settings.openai_api_key, base_url=base_url)
+        self.model = model or settings.openai_model
 
     def complete(self, system: str, user: str) -> LLMResponse:
         resp = self.client.chat.completions.create(
@@ -104,6 +104,19 @@ class OpenAIProvider(LLMProvider):
             output_tokens=usage.completion_tokens,
             cost_usd=_estimate_cost(self.model, usage.prompt_tokens, usage.completion_tokens),
         )
+
+
+class GroqProvider(OpenAIProvider):
+    """Groq's API is OpenAI-compatible, so this is the OpenAIProvider pointed
+    at Groq's endpoint + free-tier model instead of new integration code.
+    Free developer tier, no credit card required (console.groq.com) — the
+    "free way to do this" option, functionally identical in every other
+    respect (same citations/grounding/tracing behavior)."""
+
+    name = "groq"
+
+    def __init__(self):
+        super().__init__(api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1", model=settings.groq_model)
 
 
 class MockProvider(LLMProvider):
@@ -149,7 +162,9 @@ def get_provider() -> LLMProvider:
             return AnthropicProvider()
         if provider == "openai" and settings.openai_api_key:
             return OpenAIProvider()
-        if provider not in ("anthropic", "openai", "mock"):
+        if provider == "groq" and settings.groq_api_key:
+            return GroqProvider()
+        if provider not in ("anthropic", "openai", "groq", "mock"):
             log_event(logger, 30, "unknown_llm_provider_falling_back_to_mock", configured=provider)
     except Exception as exc:  # noqa: BLE001
         log_event(logger, 40, "llm_provider_init_failed_falling_back_to_mock", provider=provider, error=str(exc))
