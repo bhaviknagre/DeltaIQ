@@ -1,0 +1,15 @@
+pymupdf==1.28.0
+pytesseract==0.3.13
+pillow==12.3.0
+rapidfuzz==3.14.5
+rank-bm25==0.2.2
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+click==8.4.2
+rich==15.0.0
+ezdxf==1.4.4
+anthropic==0.119.0
+openai==2.48.0
+reportlab==5.0.0
+pytest==9.1.1

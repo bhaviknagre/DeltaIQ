@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+logs/*.jsonl
+traces/*.json
+eval/results/*.json
+output/
+data/renders/
+data/pid_store/pids.json
+.pytest_cache/
+*.egg-info/
+.DS_Store

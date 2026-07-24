@@ -1,0 +1,42 @@
+services:
+  delta-chat:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./traces:/app/traces
+      - ./output:/app/output
+      - ./eval/results:/app/eval/results
+    # `docker compose up` runs the reproducible pipeline end to end:
+    # build samples -> seed PIDs -> ingest -> delta -> report.
+    command: >
+      sh -c "python -m data.samples.build_synthetic_pairs &&
+             python -m scripts.seed_pids &&
+             python -m src.cli run demo-native-a demo-native-b --out-dir output/native"
+
+  chat:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./traces:/app/traces
+    stdin_open: true
+    tty: true
+    command: python -m src.cli chat demo-native-a demo-native-b
+    profiles: ["chat"]
+
+  eval:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./traces:/app/traces
+      - ./eval/results:/app/eval/results
+    command: python -m eval.run_eval
+    profiles: ["eval"]
