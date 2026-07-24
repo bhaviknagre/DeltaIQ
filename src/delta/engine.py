@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from src.canonical.model import BoundingBox, CanonicalDocument, Element, ElementType
 from src.delta.align import MOVED_POSITION_EPS, AlignmentResult, MatchedPair, align
+from src.delta.criticality import Criticality, classify_criticality
 from src.observability.logging import get_logger, log_event
 
 logger = get_logger("delta.engine")
@@ -35,6 +36,7 @@ class DeltaItem(BaseModel):
     description: str
     confidence: float
     match_method: str | None = None
+    criticality: Criticality
 
 
 class DeltaResult(BaseModel):
@@ -56,6 +58,17 @@ class DeltaResult(BaseModel):
         for it in self.items:
             out[it.category.value] = out.get(it.category.value, 0) + 1
         return out
+
+    def counts_by_criticality(self) -> dict[str, int]:
+        out = {"red": 0, "yellow": 0, "green": 0}
+        for it in self.items:
+            out[it.criticality.value] += 1
+        return out
+
+    def avg_confidence(self) -> float:
+        if not self.items:
+            return 1.0
+        return round(sum(it.confidence for it in self.items) / len(self.items), 3)
 
 
 def _describe_modified(a: Element, b: Element, dist: float) -> str:
@@ -89,6 +102,7 @@ def _pair_to_delta_item(pair: MatchedPair) -> DeltaItem | None:
         description=_describe_modified(a, b, pair.spatial_dist),
         confidence=confidence,
         match_method=pair.method,
+        criticality=classify_criticality(ChangeKind.MODIFIED, b.element_type),
     )
 
 
@@ -117,6 +131,7 @@ def compute_delta(doc_a: CanonicalDocument, doc_b: CanonicalDocument) -> DeltaRe
                 after_text=None,
                 description=f"{e.element_type.value.title()} removed: '{e.text}'",
                 confidence=round(e.confidence, 3),
+                criticality=classify_criticality(ChangeKind.REMOVED, e.element_type),
             )
         )
 
@@ -132,6 +147,7 @@ def compute_delta(doc_a: CanonicalDocument, doc_b: CanonicalDocument) -> DeltaRe
                 after_text=e.text,
                 description=f"New {e.element_type.value} added: '{e.text}'",
                 confidence=round(e.confidence, 3),
+                criticality=classify_criticality(ChangeKind.ADDED, e.element_type),
             )
         )
 

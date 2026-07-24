@@ -5,12 +5,16 @@ accuracy against a Q&A ground-truth set.
 
 from __future__ import annotations
 
+import re
+from collections import Counter
 from dataclasses import dataclass, field
 
+from src.canonical.model import CanonicalDocument
 from src.chat.answer import AnswerResult
 from src.delta.engine import DeltaItem
 
 _KIND_MAP = {"modify": "modified", "remove": "removed", "add": "added"}
+_WORD_RE = re.compile(r"[a-z0-9]+")
 
 
 @dataclass
@@ -67,6 +71,31 @@ def score_delta(gt_edits: list[dict], predicted: list[DeltaItem]) -> DeltaScore:
         missed_gt_ids=missed_gt_ids,
         spurious_predicted_ids=[p.id for p in remaining],
     )
+
+
+def score_ocr_accuracy(native_doc: CanonicalDocument, ocr_doc: CanonicalDocument) -> float:
+    """Word-level OCR accuracy: of all words present in the native (ground-
+    truth) text layer, what fraction does OCR also recover — comparing the
+    OCR adapter's output against the native adapter's output run on the
+    *same underlying page content* (native and scanned samples are the same
+    document; scanned is just a 300dpi rasterization of it, see
+    data/samples/build_synthetic_pairs.py). A multiset word-overlap ratio,
+    not true Word Error Rate (doesn't penalize OCR insertions/hallucinated
+    words, only misses) — a deliberately simple, honestly-labeled proxy
+    rather than a heavier alignment-based WER implementation.
+    """
+
+    def words(doc: CanonicalDocument) -> Counter:
+        text = " ".join(e.text for e in doc.all_elements())
+        return Counter(_WORD_RE.findall(text.lower()))
+
+    native_words = words(native_doc)
+    ocr_words = words(ocr_doc)
+    total_native = sum(native_words.values())
+    if total_native == 0:
+        return 1.0
+    matched = sum(min(count, ocr_words[word]) for word, count in native_words.items())
+    return round(matched / total_native, 4)
 
 
 @dataclass
