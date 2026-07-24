@@ -88,15 +88,31 @@ def answer_question(
     context = _format_context(hits)
     user_prompt = f"<context>\n{context}\n</context>\n\n<question>\n{query}\n</question>"
 
-    with trace.span("llm_call", provider=provider.name) as span:
-        resp = provider.complete(SYSTEM_PROMPT, user_prompt)
-        span.attrs.update(
-            {
-                "model": resp.model,
-                "input_tokens": resp.input_tokens,
-                "output_tokens": resp.output_tokens,
-                "cost_usd": resp.cost_usd,
-            }
+    try:
+        with trace.span("llm_call", provider=provider.name) as span:
+            resp = provider.complete(SYSTEM_PROMPT, user_prompt)
+            span.attrs.update(
+                {
+                    "model": resp.model,
+                    "input_tokens": resp.input_tokens,
+                    "output_tokens": resp.output_tokens,
+                    "cost_usd": resp.cost_usd,
+                }
+            )
+    except Exception as exc:  # noqa: BLE001 - provider call is the one network-dependent, arbitrarily-failing step
+        # The span above already recorded status="error" + the exception on the
+        # trace file before re-raising (see observability/tracing.py) — this is
+        # the "don't let one bad LLM call crash the whole request/eval run"
+        # boundary, not where the error is first captured.
+        log_event(logger, 40, "llm_call_failed", query=query, provider=provider.name, error=str(exc))
+        with trace.span("answer", grounded=False, llm_error=True):
+            pass
+        return AnswerResult(
+            answer=f"The LLM provider call failed ({type(exc).__name__}: {exc}). "
+            f"Retrieval found {len(hits)} relevant source(s), but no answer could be generated — "
+            "see the trace file for details.",
+            grounded=False,
+            retrieved=[RetrievedEvidence(chunk=c, score=s) for c, s in hits],
         )
 
     citations_used = [m.group(0) for m in CITATION_RE.finditer(resp.text)]
