@@ -43,6 +43,7 @@ CHECKS = [
     ("scripts.checks.check_storage", "Storage (Mongo/Redis/MinIO/vector)", False),
     ("scripts.checks.check_metrics", "Prometheus metrics", False),
     ("scripts.checks.check_dvc", "DVC data versioning", False),
+    ("scripts.checks.check_k8s", "Kubernetes manifests (kubeconform)", False),
     ("scripts.checks.check_chat", "Grounded chat", False),
     ("scripts.checks.check_webapp", "Web UI (FastAPI routes)", False),
     ("scripts.checks.check_tasks", "Background tasks (Celery)", True),

@@ -22,7 +22,7 @@ from src._version import __version__
 from src.canonical.model import CanonicalDocument
 from src.chat.answer import answer_question
 from src.chat.vector_index import build_retriever
-from src.config import settings
+from src.config import redact_uri, settings
 from src.delta.engine import DeltaResult, compute_delta
 from src.delta.report import to_markdown
 from src.ingest.pid_store import _load_manifest, load
@@ -244,13 +244,13 @@ def infra_status(request: Request):
         import pymongo
 
         pymongo.MongoClient(settings.mongodb_uri, serverSelectionTimeoutMS=1500).admin.command("ping")
-        return settings.mongodb_uri
+        return redact_uri(settings.mongodb_uri)
 
     def check_redis():
         import redis
 
         redis.Redis.from_url(settings.redis_url, socket_connect_timeout=1.5).ping()
-        return settings.redis_url
+        return redact_uri(settings.redis_url)
 
     def check_minio():
         from minio import Minio
@@ -280,7 +280,7 @@ def infra_status(request: Request):
         conn = celery_app.connection()
         conn.ensure_connection(max_retries=1, timeout=1.5)
         conn.release()
-        return settings.redis_url
+        return redact_uri(settings.redis_url)
 
     def check_langfuse():
         from src.observability.langfuse_tracing import get_langfuse_client

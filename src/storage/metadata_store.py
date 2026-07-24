@@ -33,7 +33,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any
 
-from src.config import settings
+from src.config import redact_uri, settings
 from src.observability.logging import get_logger, log_event
 
 logger = get_logger("storage.metadata_store")
@@ -210,7 +210,7 @@ class MongoMetadataStore(MetadataStore):
         self._deltas.create_index([("pid_a", 1), ("pid_b", 1)], unique=True)
         self._chat_sessions.create_index("session_id")
         self._jobs.create_index("job_id", unique=True)
-        log_event(logger, 20, "mongo_metadata_store_connected", uri=settings.mongodb_uri, db=settings.mongodb_db_name)
+        log_event(logger, 20, "mongo_metadata_store_connected", uri=redact_uri(settings.mongodb_uri), db=settings.mongodb_db_name)
 
     def register_pid(self, pid: str, path: str, revision_label: str | None) -> None:
         self._pids.update_one(

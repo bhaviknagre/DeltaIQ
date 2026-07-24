@@ -1,7 +1,7 @@
 .PHONY: setup samples seed run chat markup eval metrics test clean ui docs docs-build \
         check check-fast check-env check-ingestion check-delta check-report check-retrieval \
         check-observability check-chat check-webapp check-eval check-docs check-storage \
-        check-tasks check-metrics check-dvc version worker flower infra-up infra-down infra-logs \
+        check-tasks check-metrics check-dvc check-k8s version worker flower infra-up infra-down infra-logs \
         dvc-repro dvc-dag dvc-metrics
 
 VENV := .venv/bin
@@ -104,6 +104,9 @@ check-metrics: seed
 
 check-dvc:
 	$(PY) -m scripts.checks.check_dvc
+
+check-k8s:
+	$(PY) -m scripts.checks.check_k8s
 
 # DVC pipeline (dvc.yaml): samples -> eval, with delta/retrieval thresholds
 # tracked in params.yaml. `dvc repro` only re-runs stages whose deps/params

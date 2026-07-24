@@ -4,6 +4,7 @@ vars / .env — nothing below is meant to be hardcoded at call sites."""
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,6 +12,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ROOT = Path(__file__).resolve().parent.parent
+
+_CREDENTIALS_IN_URI = re.compile(r"(://)[^:/@]*:[^@]+@")
+
+
+def redact_uri(uri: str) -> str:
+    """Strips user:pass@ out of a connection string for anything that gets
+    logged, traced, or rendered on a page (the /infra status page, JSON
+    logs, trace files) — found live: MONGODB_URI was being logged and
+    rendered in full, password included, at every Mongo connection. Never
+    log/display settings.mongodb_uri directly; always pass it through this
+    first."""
+    return _CREDENTIALS_IN_URI.sub(r"\1***:***@", uri)
 
 
 def _f(name: str, default: float) -> float:

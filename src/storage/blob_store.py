@@ -25,7 +25,7 @@ import io
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from src.config import settings
+from src.config import redact_uri, settings
 from src.observability.logging import get_logger, log_event
 
 logger = get_logger("storage.blob_store")
@@ -129,7 +129,7 @@ class MongoGridFSBlobStore(BlobStore):
         self._client = client or pymongo.MongoClient(settings.mongodb_uri, serverSelectionTimeoutMS=3000)
         self._db = self._client[settings.mongodb_db_name]
         self._fs = gridfs.GridFS(self._db)
-        log_event(logger, 20, "gridfs_connected", uri=settings.mongodb_uri, db=settings.mongodb_db_name)
+        log_event(logger, 20, "gridfs_connected", uri=redact_uri(settings.mongodb_uri), db=settings.mongodb_db_name)
 
     def put(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
         if self._fs.exists({"filename": key}):

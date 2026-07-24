@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from src.config import settings
+from src.config import redact_uri, settings
 from src.observability.logging import get_logger, log_event
 from src.storage.metadata_store import get_metadata_store
 
@@ -35,7 +35,7 @@ class ChatSessionStore:
             client = redis.Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=2)
             client.ping()
             self._redis = client
-            log_event(logger, 20, "session_store_redis_connected", url=settings.redis_url)
+            log_event(logger, 20, "session_store_redis_connected", url=redact_uri(settings.redis_url))
         except Exception as exc:  # noqa: BLE001
             log_event(logger, 30, "session_store_redis_unavailable_using_memory_fallback", error=str(exc))
             self._memory: dict[str, list[dict]] = {}
