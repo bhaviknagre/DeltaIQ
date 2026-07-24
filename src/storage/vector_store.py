@@ -112,6 +112,12 @@ class PineconeVectorStore(VectorStore):
             )
         self._index = self._pc.Index(self._index_name)
 
+    # Pinecone rejects a single upsert request over 1000 vectors outright
+    # (found live: a real document's ~1200 chunks 400'd in one call) — 100
+    # is Pinecone's own documented recommended batch size for throughput,
+    # well under the hard cap.
+    _UPSERT_BATCH_SIZE = 100
+
     def upsert(self, collection: str, ids: list[str], embeddings: list[list[float]],
                texts: list[str], metadatas: list[dict]) -> None:
         if not ids:
@@ -120,7 +126,8 @@ class PineconeVectorStore(VectorStore):
             {"id": f"{collection}:{id_}", "values": emb, "metadata": {**meta, "text": text, "collection": collection}}
             for id_, emb, text, meta in zip(ids, embeddings, texts, metadatas)
         ]
-        self._index.upsert(vectors=vectors, namespace=collection)
+        for i in range(0, len(vectors), self._UPSERT_BATCH_SIZE):
+            self._index.upsert(vectors=vectors[i:i + self._UPSERT_BATCH_SIZE], namespace=collection)
 
     def query(self, collection: str, embedding: list[float], top_k: int) -> list[VectorHit]:
         result = self._index.query(vector=embedding, top_k=top_k, namespace=collection, include_metadata=True)
@@ -132,7 +139,18 @@ class PineconeVectorStore(VectorStore):
         return hits
 
     def delete_collection(self, collection: str) -> None:
-        self._index.delete(delete_all=True, namespace=collection)
+        # Unlike Chroma's get_or_create/delete (idempotent even for a
+        # namespace that's never existed), Pinecone's delete(delete_all=True)
+        # 404s on a brand-new namespace — found live testing a fresh
+        # collection name for the first time. Deleting nothing because there
+        # was nothing to delete is exactly the outcome we want, so swallow
+        # only that specific case.
+        from pinecone.exceptions import NotFoundException
+
+        try:
+            self._index.delete(delete_all=True, namespace=collection)
+        except NotFoundException:
+            pass
 
 
 class NullVectorStore(VectorStore):
