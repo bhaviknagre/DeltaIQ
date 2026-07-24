@@ -20,3 +20,13 @@ site/
 data/chroma/
 data/pid_store/cache/
 data/blobs/
+
+# Terraform — state/cache/real-values files, same "never commit the real
+# one, .example ships instead" rule as .env. .terraform.lock.hcl is NOT
+# ignored — that's a provider version lock file meant to be committed
+# (same idea as package-lock.json), unlike everything else here.
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/*.tfplan

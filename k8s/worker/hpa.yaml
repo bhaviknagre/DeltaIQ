@@ -1,0 +1,31 @@
+# CPU-based HPA — the safe, dependency-free default (works on any cluster,
+# no extra operator required). Scales on the same signal as api/hpa.yaml.
+#
+# The more meaningful signal for a task queue is actual queue depth (how
+# many jobs are waiting in Redis), not worker CPU — a worker can sit idle
+# at low CPU while a backlog builds up during a burst of scanned-PDF
+# ingestions. KEDA's redis-list ScaledObject reads that directly. Not used
+# here by default because it requires the KEDA operator pre-installed on
+# the cluster, which this repo can't verify/install for you — see
+# keda-scaledobject.yaml in this same directory for the real config to
+# apply once KEDA is available; delete this HPA first if you switch to it
+# (a Deployment shouldn't be targeted by both at once).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+  namespace: delta-chat
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

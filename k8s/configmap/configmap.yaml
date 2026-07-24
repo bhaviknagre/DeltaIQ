@@ -1,0 +1,62 @@
+# Non-secret configuration — mirrors .env.example. Every value here has a
+# working, documented default in src/config.py; this ConfigMap only needs
+# to override what genuinely differs between local dev and this cluster
+# (in-cluster service DNS names instead of localhost, mainly).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delta-chat-config
+  namespace: delta-chat
+data:
+  # --- LLM ---
+  LLM_PROVIDER: "groq"
+  ANTHROPIC_MODEL: "claude-sonnet-4-5"
+  OPENAI_MODEL: "gpt-4o-mini"
+  GROQ_MODEL: "llama-3.3-70b-versatile"
+  LLM_MAX_TOKENS: "1024"
+  LLM_TEMPERATURE: "0.0"
+
+  # --- Delta alignment thresholds ---
+  FUZZY_MATCH_THRESHOLD: "78"
+  SPATIAL_MATCH_MAX_DIST: "60"
+  MODIFIED_TEXT_THRESHOLD: "99.5"
+
+  # --- Retrieval ---
+  RETRIEVAL_TOP_K: "8"
+  RETRIEVAL_MIN_SCORE: "0.05"
+  RETRIEVAL_BACKEND: "hybrid"
+  HYBRID_BM25_WEIGHT: "0.5"
+  EMBEDDER: "hashing"
+  HASHING_EMBEDDER_DIM: "256"
+
+  # --- Vector store: in-cluster Chroma by default (see k8s/chroma/) ---
+  VECTOR_STORE: "chroma"
+  CHROMA_HOST: "chroma.delta-chat.svc.cluster.local"
+  CHROMA_PORT: "8000"
+  PINECONE_INDEX_NAME: "delta-chat"
+
+  # --- Metadata store: MongoDB Atlas (external, managed) by default —
+  # cluster host/URI lives in the Secret, not here, since it embeds
+  # credentials even in "just the hostname" form for SRV connection strings.
+  METADATA_STORE: "mongo"
+  MONGODB_DB_NAME: "delta_chat"
+
+  # --- Blob store: in-cluster MinIO by default (see k8s/minio/); swap for
+  # BLOB_STORE=gcs-equivalent handling once/if a GCS backend is added —
+  # not built yet, see src/storage/blob_store.py for the current backends. ---
+  BLOB_STORE: "minio"
+  MINIO_ENDPOINT: "minio.delta-chat.svc.cluster.local:9000"
+  MINIO_BUCKET: "delta-chat"
+  MINIO_SECURE: "false"
+
+  # --- Background tasks ---
+  REDIS_URL: "redis://redis.delta-chat.svc.cluster.local:6379/0"
+  CELERY_TASK_ALWAYS_EAGER: "false"
+
+  # --- LLM observability ---
+  LANGFUSE_HOST: "https://cloud.langfuse.com"
+
+  # --- OCR ---
+  OCR_DPI: "300"
+  OCR_LANG: "eng"
+  OCR_PSM: "11"

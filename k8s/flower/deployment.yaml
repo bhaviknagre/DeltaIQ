@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flower
+  namespace: delta-chat
+  labels:
+    app: flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flower
+  template:
+    metadata:
+      labels:
+        app: flower
+    spec:
+      containers:
+        - name: flower
+          image: delta-chat:latest  # same image as api/ — see k8s/api/deployment.yaml note
+          command: ["celery", "-A", "src.tasks.celery_app", "flower", "--port=5555"]
+          ports:
+            - containerPort: 5555
+          envFrom:
+            - configMapRef: { name: delta-chat-config }
+            - secretRef: { name: delta-chat-secrets }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 250m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 5555 }
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,45 @@
+# Assumes an nginx ingress controller is installed on the cluster
+# (ingressClassName: nginx) — the most common choice, but swap for GKE's
+# own `gce` class + a BackendConfig if you'd rather use a GCP HTTP(S) load
+# balancer directly instead of self-hosting an ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-chat
+  namespace: delta-chat
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"  # PDF uploads
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: delta-chat.example.com  # replace with your real domain before applying
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+          - path: /flower
+            pathType: Prefix
+            backend:
+              service:
+                name: flower
+                port:
+                  number: 5555
+          - path: /prometheus
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090

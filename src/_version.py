@@ -3,4 +3,4 @@
 bump this alongside a CHANGELOG entry and a matching git tag, not on its own.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"

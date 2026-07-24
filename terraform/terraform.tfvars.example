@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored —
+# never commit a real project_id-bearing tfvars file the same way .env
+# never gets committed.
+
+project_id  = "REPLACE_ME"
+region      = "us-central1"
+zone        = "us-central1-a"
+environment = "dev"

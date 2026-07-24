@@ -1,0 +1,23 @@
+# Real, applyable config — NOT applied by default (see hpa.yaml in this
+# same directory for the default). Requires the KEDA operator installed on
+# the cluster first (https://keda.sh — `helm install keda kedacore/keda`).
+# Scales the worker Deployment on actual Celery queue depth in Redis
+# rather than CPU, which reacts to a backlog building up, not just to CPU
+# load — the right signal for "OCR ingestion jobs are piling up," which
+# doesn't necessarily spike CPU on the worker pods themselves.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-queue-depth
+  namespace: delta-chat
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    - type: redis
+      metadata:
+        address: "redis.delta-chat.svc.cluster.local:6379"
+        listName: "celery"
+        listLength: "5"  # scale up once >5 queued tasks per current replica

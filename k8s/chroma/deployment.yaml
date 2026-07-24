@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chroma
+  namespace: delta-chat
+  labels:
+    app: chroma
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chroma
+  template:
+    metadata:
+      labels:
+        app: chroma
+    spec:
+      containers:
+        - name: chroma
+          image: chromadb/chroma
+          ports:
+            - containerPort: 8000
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /api/v1/heartbeat, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: chroma-data
+              mountPath: /chroma/chroma
+      volumes:
+        - name: chroma-data
+          persistentVolumeClaim:
+            claimName: chroma-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chroma-data
+  namespace: delta-chat
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
