@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Infra Status{% endblock %}
+{% block content %}
+<h1>Infrastructure status</h1>
+<p class="muted">Live probes against every backend this deployment is configured to use — not just "is it configured," but "is it reachable right now."</p>
+
+<div class="card">
+  <h3>Active configuration</h3>
+  <div class="stat-grid stat-grid-3">
+    {% for key, value in config.items() %}
+    <div class="stat"><span class="stat-value">{{ value }}</span><span class="stat-label">{{ key }}</span></div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Backend health</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Signal</th><th>Backend</th><th>Detail</th></tr></thead>
+      <tbody>
+        {% for b in backends %}
+        <tr>
+          <td>
+            {% if b.status == "up" %}<span class="chip chip-green">up</span>
+            {% elif b.status == "down" %}<span class="chip chip-red">down</span>
+            {% else %}<span class="chip" style="background:var(--border);color:var(--muted);">not configured</span>
+            {% endif %}
+          </td>
+          <td>{{ b.name }}</td>
+          <td class="muted small">{{ b.detail or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>External tools</h3>
+  <p class="muted small">Only reachable if you've run <code>make infra-up</code> / <code>make worker</code> / <code>make flower</code> — links work regardless of what's shown as "up" above, since those are separate opt-in processes.</p>
+  <div class="btn-row">
+    {% for l in links %}
+    <a class="btn" href="{{ l.url }}" target="_blank" rel="noopener">{{ l.name }} &rarr;</a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -74,6 +74,15 @@ def main() -> None:
         resp = client.get("/eval")
         assert resp.status_code == 200
 
+    with suite.check("GET /infra shows live backend health, not just config"):
+        resp = client.get("/infra")
+        assert resp.status_code == 200
+        assert "Backend health" in resp.text
+        # Redis and Celery are always checked (not gated behind a
+        # METADATA_STORE/BLOB_STORE toggle) — real content should show
+        # either up or down for them, never silently absent.
+        assert "chip-green\">up" in resp.text or "chip-red\">down" in resp.text
+
     suite.exit()
 
 

@@ -219,6 +219,108 @@ def eval_run():
     return RedirectResponse(url="/eval", status_code=303)
 
 
+def _check_backend(name: str, configured: bool, probe) -> dict:
+    """Runs a real, short-timeout live probe against a backend — not just
+    "is this configured," but "is it actually reachable right now." Every
+    probe is wrapped so one hung/broken backend can't take the whole
+    /infra page down."""
+    if not configured:
+        return {"name": name, "status": "not_configured"}
+    try:
+        detail = probe()
+        return {"name": name, "status": "up", "detail": detail}
+    except Exception as exc:  # noqa: BLE001
+        return {"name": name, "status": "down", "detail": f"{type(exc).__name__}: {exc}"}
+
+
+@app.get("/infra", response_class=HTMLResponse)
+def infra_status(request: Request):
+    def check_mongo():
+        import pymongo
+
+        pymongo.MongoClient(settings.mongodb_uri, serverSelectionTimeoutMS=1500).admin.command("ping")
+        return settings.mongodb_uri
+
+    def check_redis():
+        import redis
+
+        redis.Redis.from_url(settings.redis_url, socket_connect_timeout=1.5).ping()
+        return settings.redis_url
+
+    def check_minio():
+        from minio import Minio
+
+        client = Minio(
+            settings.minio_endpoint, access_key=settings.minio_access_key,
+            secret_key=settings.minio_secret_key, secure=settings.minio_secure,
+        )
+        client.bucket_exists(settings.minio_bucket)
+        return settings.minio_endpoint
+
+    def check_chroma():
+        from src.storage.vector_store import ChromaVectorStore
+
+        ChromaVectorStore()
+        return settings.chroma_host or f"embedded @ {settings.chroma_persist_dir}"
+
+    def check_pinecone():
+        from pinecone import Pinecone
+
+        Pinecone(api_key=settings.pinecone_api_key).list_indexes()
+        return settings.pinecone_index_name
+
+    def check_celery():
+        from src.tasks.celery_app import celery_app
+
+        conn = celery_app.connection()
+        conn.ensure_connection(max_retries=1, timeout=1.5)
+        conn.release()
+        return settings.redis_url
+
+    def check_langfuse():
+        from src.observability.langfuse_tracing import get_langfuse_client
+
+        client = get_langfuse_client()
+        assert client is not None
+        return settings.langfuse_host
+
+    backends = [
+        _check_backend("MongoDB (metadata store)", settings.metadata_store == "mongo", check_mongo),
+        _check_backend("Redis (chat cache + Celery broker)", True, check_redis),
+        _check_backend("MinIO (blob store)", settings.blob_store == "minio", check_minio),
+        _check_backend(
+            "Chroma (vector store)",
+            settings.retrieval_backend in ("vector", "hybrid") and settings.vector_store == "chroma",
+            check_chroma,
+        ),
+        _check_backend(
+            "Pinecone (vector store)",
+            settings.retrieval_backend in ("vector", "hybrid") and settings.vector_store == "pinecone",
+            check_pinecone,
+        ),
+        _check_backend("Celery (background tasks)", True, check_celery),
+        _check_backend("Langfuse (LLM observability)", bool(settings.langfuse_public_key), check_langfuse),
+    ]
+
+    config = {
+        "LLM_PROVIDER": settings.llm_provider,
+        "RETRIEVAL_BACKEND": settings.retrieval_backend,
+        "METADATA_STORE": settings.metadata_store,
+        "BLOB_STORE": settings.blob_store,
+        "VECTOR_STORE": settings.vector_store,
+    }
+
+    links = [
+        {"name": "Grafana", "url": "http://localhost:3000"},
+        {"name": "Prometheus", "url": "http://localhost:9090"},
+        {"name": "Flower (Celery)", "url": "http://localhost:5555"},
+        {"name": "MinIO console", "url": "http://localhost:9001"},
+        {"name": "Raw metrics", "url": "/metrics"},
+    ]
+
+    return templates.TemplateResponse(request, "infra.html", {"backends": backends, "config": config, "links": links})
+
+
 @app.get("/api/pids")
 def api_pids():
     return JSONResponse(_known_pids())
