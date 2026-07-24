@@ -7,6 +7,7 @@ setup:
 	python3 -m venv .venv
 	$(VENV)/pip install --quiet --upgrade pip
 	$(VENV)/pip install --quiet -r requirements.txt
+	$(VENV)/pip install --quiet -r requirements-docs.txt
 	@command -v tesseract >/dev/null 2>&1 || (echo "tesseract not found — install it: brew install tesseract (macOS) or apt-get install tesseract-ocr (Linux)" && exit 1)
 
 samples:

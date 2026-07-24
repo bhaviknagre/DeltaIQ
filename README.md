@@ -8,13 +8,15 @@ delta with citations.
 ## Quickstart
 
 ```bash
-make setup     # venv + deps + checks for tesseract (brew install tesseract / apt-get install tesseract-ocr)
+make setup     # venv + deps (app + docs) + checks for tesseract (brew install tesseract / apt-get install tesseract-ocr)
 make samples   # synthesize the demo revision pairs (see "Sample data" below)
 make run       # ingest -> delta -> report on the native-PDF pair (reproducible run)
 make chat      # grounded chat REPL over that pair + its delta
+make ui        # web dashboard + chat + eval scorecard, at http://localhost:8000
 make markup    # bonus: redline overlay PDF
 make eval      # scorecard: delta P/R/F1 + chat correctness/groundedness/citation accuracy
 make test      # unit + integration tests
+make docs      # MkDocs documentation site, served locally
 ```
 
 Or via Docker (also installs tesseract, so it sidesteps the local OCR dependency):
@@ -106,6 +108,18 @@ explicitly: P&ID tag codes, pipe specs, and numbered notes follow regular
 enough patterns that regex is free, instant, and exactly as accurate as an LLM
 would be here, and LLM effort is better spent on chat answers where genuine
 language understanding is needed.
+
+**Criticality signal (red/yellow/green)**: `delta/criticality.py` adds a
+second, deliberately separate score to every `DeltaItem` — `confidence`
+answers "how sure are we this was detected correctly," `criticality` answers
+"how much does it matter" (independent of that certainty). Deterministic
+rules: a dimension modified/removed or a tag removed → 🔴 red (the class of
+change that historically gets missed in manual review and causes rework); a
+tag modified/added, dimension added, or note/text removed → 🟡 yellow;
+everything else → 🟢 green. It's a heuristic classifier, not a
+magnitude-aware one (it reacts to *what* changed, not *by how much* — see
+"what's next"). Surfaced in the delta report, the markup overlay (boxes now
+colored by criticality, not just change kind), and the [web UI](#web-ui--documentation).
 
 ## Grounded chat
 
@@ -211,29 +225,50 @@ expected keywords, plus 1 deliberately adversarial/off-topic question
 (`"What color is the sky drawn in this P&ID?"`) that should trigger a refusal,
 not a hallucinated answer.
 
-**Latest scorecard** (mock LLM provider — no API key in this environment):
+**Latest scorecard** (real LLM — Groq `llama-3.3-70b-versatile`, free tier, $0 cost):
 
 ```
-DELTA ENGINE SCORECARD
-  [native]  precision=1.00 recall=1.00 f1=1.00  (TP=6 FN=0 FP=0)
-  [scanned] precision=0.60 recall=1.00 f1=0.75  (TP=6 FN=0 FP=4)
+Document Pair    : native
+Precision        : 1.00    Recall : 1.00    F1 Score : 1.00
+Avg Confidence   : 0.96    Criticality: 🔴 1  🟡 3  🟢 2
 
-CHAT SCORECARD
-  accuracy=0.86  groundedness_rate=1.00  citation_accuracy=0.22
+Document Pair    : scanned
+Precision        : 0.60    Recall : 1.00    F1 Score : 0.75
+Avg Confidence   : 0.73    Criticality: 🔴 1  🟡 3  🟢 6
+OCR Accuracy     : 87.0%
+
+Chat Correctness : 0.86    Groundedness : 0.83    Citation Accuracy : 0.60
+Latency          : 0.41 sec/question (avg)   Tokens Used : 2,687   Cost : $0.0000
+
+PASS
 ```
 
 - **Delta P/R/F1**: matches predicted `DeltaItem`s to ground-truth edits by
   change-kind + text containment (robust across native line-granularity vs.
   OCR's coarser word-clustering), then precision/recall/F1 over matched vs.
-  missed vs. spurious.
+  missed vs. spurious. `avg_confidence` and the 🔴/🟡/🟢 criticality counts are
+  the same signal shown in the delta report and web UI (see "Delta engine").
+- **OCR accuracy**: a *real*, computed word-level overlap between the OCR
+  adapter's output and the native adapter's output on the identical
+  underlying document (`eval/metrics.py::score_ocr_accuracy`) — not asserted,
+  measured.
 - **Chat accuracy**: keyword match in the answer AND `grounded=True` (or, for
   the adversarial question, a correct refusal).
 - **Citation accuracy**: for correct, non-hedge answers, checks that cited
   chunks *actually contain* an expected keyword — verifies citations aren't
-  just decorative. Low here (0.22) mostly because many correct answers cite
+  just decorative. Low here (0.60) mostly because many correct answers cite
   short single-tag chunks that don't literally contain the full expected phrase
   even when they're the right source — noted as a metric-design limitation, see
   below.
+- **PASS/FAIL**: a banner against documented thresholds
+  (`eval/run_eval.py::PASS_THRESHOLDS` — delta F1, chat accuracy, and
+  groundedness all ≥ 0.75), chosen to tolerate the known OCR/BM25 gaps below
+  without masking an actual regression.
+- **Groundedness dropped 1.00 → 0.83 when the mock LLM was replaced with a
+  real one** — not a regression: the mock always echoed whatever was
+  retrieved as "grounded," while Groq correctly *refuses* on the qa-6
+  retrieval gap per the system prompt's hedge instruction. The eval harness
+  catching its own earlier optimism bias, live.
 
 ### Candid failures
 
@@ -256,6 +291,44 @@ CHAT SCORECARD
   `"57-9006"` for a question whose expected keyword is the full renumbering
   claim). A better version would check semantic support, not string
   containment — listed under "what's next."
+
+## Web UI & documentation
+
+```bash
+make ui     # http://localhost:8000 — dashboard, chat, eval scorecard
+make docs   # MkDocs site (mkdocs-material), served locally
+```
+
+**Web UI** (`src/webapp/`, FastAPI + server-rendered Jinja2 + hand-rolled
+vanilla-SVG charts — no CDN/chart-library dependency, works offline):
+
+- **Dashboard**: pick two PIDs, run the delta, see canonical-representation
+  summary cards (pages/elements/tables/dimensions per doc), a changes-by-kind
+  bar chart, a criticality donut, and the full delta table sorted red → yellow
+  → green with signal chips per row — plus links to the Markdown/JSON report
+  and a markup-PDF download.
+- **Chat**: fetch-based UI over `/api/chat` — the same `answer_question()`
+  call the CLI uses, citations shown as chips, model/tokens/cost per answer.
+- **Eval**: a PASS/FAIL banner, F1/accuracy gauges, an OCR-accuracy/latency/
+  token/cost stat row, a multi-run trend chart, and the candid chat failure
+  table — reading real `eval/results/*.json`, with a "run new eval" button
+  wired to the exact same scoring functions `make eval` uses (no separate UI
+  scoring logic to drift out of sync). Verified live end-to-end: all routes
+  return 200, chat returns real Groq-generated grounded answers with correct
+  citations, and a live eval run produces a genuine PASS from real numbers
+  (`tests/test_webapp.py`).
+
+Demo-scope simplification, stated plainly: ingested documents/deltas/indexes
+are cached in an in-process dict keyed by `(pid_a, pid_b)` so page navigation
+doesn't re-run OCR/alignment every request — a real deployment would back
+this with a proper cache/store, not a process dict.
+
+**Documentation site** (`docs/`, `mkdocs.yml`, mkdocs-material theme):
+architecture (with request-flow diagrams), format support, delta engine +
+criticality signal, grounded chat, observability, evaluation, the web UI, and
+an [output reference](docs/output-reference.md) page documenting the exact
+shape of every artifact this system produces — populated with real captured
+output, not placeholder numbers.
 
 ## Sample data & provenance
 
@@ -298,9 +371,9 @@ Regenerate both with `make samples` (`python -m data.samples.build_synthetic_pai
   scoring uses a keyword+groundedness heuristic instead, with a documented
   limitation section above rather than an unvalidated judge presented as ground
   truth.
-- **Served dashboard / Prometheus+Grafana** — `make metrics` (JSON reduction
-  over trace files) chosen instead; sufficient for a single local run,
-  explicitly insufficient for continuous production monitoring.
+- **Prometheus+Grafana** — `make metrics` (JSON reduction over trace files)
+  plus the web UI's eval screen chosen instead; sufficient for a single local
+  run, explicitly insufficient for continuous production monitoring.
 - **Table-cell extraction** — `ElementType.TABLE_CELL` exists in the canonical
   model but no adapter currently detects tabular regions; neither sample
   document has a clear table region to validate against.

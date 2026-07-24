@@ -58,7 +58,7 @@ Redline boxes drawn directly onto PID B's actual page — amber `MOD` for
 modified, red `REM` for removed, green `ADD` for added (legend top-left of the
 PDF):
 
-![markup overlay crop](docs/markup_preview.png)
+![markup overlay crop](docs/assets/markup_preview.png)
 
 `26-KA-902` -> `26-KA-902B`, the line-size change on `DC-26-9026-FC11S-00`, the
 `57-9005` -> `57-9006` renumber, and the removed `TO CLOSED DRAIN` callout are

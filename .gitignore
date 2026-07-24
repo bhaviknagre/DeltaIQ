@@ -11,3 +11,4 @@ data/pid_store/pids.json
 .pytest_cache/
 *.egg-info/
 .DS_Store
+site/

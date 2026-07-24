@@ -1,0 +1,54 @@
+site_name: Document Delta & Grounded Chat
+site_description: Format-agnostic document delta engine + grounded chat over PID revisions
+repo_url: https://github.com/bhaviknagre/DeltaIQ
+repo_name: bhaviknagre/DeltaIQ
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.instant
+    - content.code.copy
+    - search.suggest
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Ingestion & formats: formats.md
+  - Delta engine & criticality: delta-engine.md
+  - Grounded chat: chat.md
+  - Observability: observability.md
+  - Evaluation: eval.md
+  - Web UI: ui.md
+  - Output reference: output-reference.md
