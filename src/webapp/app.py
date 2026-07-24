@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from src._version import __version__
 from src.canonical.model import CanonicalDocument
 from src.chat.answer import answer_question
 from src.chat.index import RetrievalIndex, build_index
@@ -31,9 +32,10 @@ from src.observability.tracing import new_trace
 logger = get_logger("webapp")
 
 HERE = Path(__file__).resolve().parent
-app = FastAPI(title="Document Delta & Grounded Chat")
+app = FastAPI(title="Document Delta & Grounded Chat", version=__version__)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 templates = Jinja2Templates(directory=str(HERE / "templates"))
+templates.env.globals["app_version"] = __version__
 
 # Demo-scope in-memory cache: ingest+delta recomputation is cheap for a
 # single-sheet sample but not something to redo on every page navigation.
@@ -193,3 +195,8 @@ def eval_run():
 @app.get("/api/pids")
 def api_pids():
     return JSONResponse(_known_pids())
+
+
+@app.get("/api/version")
+def api_version():
+    return JSONResponse({"version": __version__})

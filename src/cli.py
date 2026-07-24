@@ -14,6 +14,7 @@ from pathlib import Path
 
 import click
 
+from src._version import __version__
 from src.chat.answer import answer_question
 from src.chat.index import build_index
 from src.delta.engine import compute_delta
@@ -27,6 +28,7 @@ logger = get_logger("cli")
 
 
 @click.group()
+@click.version_option(version=__version__, prog_name="delta-chat")
 def cli():
     pass
 
