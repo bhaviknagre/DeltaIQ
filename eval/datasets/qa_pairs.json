@@ -1,0 +1,49 @@
+{
+  "description": "Ground-truth Q&A over the demo-native-a/demo-native-b PID pair and its delta. Each entry's expected_keywords are checked case-insensitively against the produced answer; expect_hedge marks a deliberately unanswerable/adversarial question used to test refusal behavior instead of hallucination.",
+  "pid_a": "demo-native-a",
+  "pid_b": "demo-native-b",
+  "qa": [
+    {
+      "id": "qa-1",
+      "question": "What was the compressor tag 26-KA-902 renamed to in the revision?",
+      "expected_keywords": ["26-KA-902B"],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-2",
+      "question": "Did the drain line size on spec DC-26-9026-FC11S-00 change, and to what?",
+      "expected_keywords": ["1\""],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-3",
+      "question": "What was tag 57-9005 renumbered to?",
+      "expected_keywords": ["57-9006"],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-4",
+      "question": "Was any note added referencing MOC-1042?",
+      "expected_keywords": ["MOC-1042"],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-5",
+      "question": "Was the 'TO CLOSED DRAIN' callout removed or kept in the revision?",
+      "expected_keywords": ["removed"],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-6",
+      "question": "What full description appears next to tag 26-KA-902 on the base revision?",
+      "expected_keywords": ["3RD STAGE HP GAS EXPORT COMPRESSOR"],
+      "expect_hedge": false
+    },
+    {
+      "id": "qa-7",
+      "question": "What color is the sky drawn in this P&ID?",
+      "expected_keywords": [],
+      "expect_hedge": true
+    }
+  ]
+}

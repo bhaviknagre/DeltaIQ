@@ -1,0 +1,7 @@
+{
+  "description": "PID pairs to run the delta engine against, scored against data/samples/ground_truth.json (the exact edits the synthetic Rev B was built with — see data/samples/build_synthetic_pairs.py).",
+  "pairs": [
+    {"name": "native", "pid_a": "demo-native-a", "pid_b": "demo-native-b", "gt_key": "pair_native"},
+    {"name": "scanned", "pid_a": "demo-scanned-a", "pid_b": "demo-scanned-b", "gt_key": "pair_scanned"}
+  ]
+}
