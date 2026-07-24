@@ -13,12 +13,11 @@ A strict no-op when LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY aren't set —
 chat/answer.py calls into this unconditionally; it should never be the
 reason a chat request needs Langfuse configured to work.
 
-Not yet verified against a live Langfuse project (no key was available
-while writing this — see chat history); the client construction and
-generation-logging calls are written against the installed langfuse==4.14.1
-SDK's actual signatures (checked via introspection, not assumed), so this
-should work as soon as a real key is supplied, but treat it as unverified
-until then, same as the Pinecone integration.
+Verified against a live Langfuse project: auth_check() succeeds, and a real
+chat_answer generation was confirmed landing in the project via the
+Langfuse API (not just "no exception was raised") after a real chat
+request. Written against the installed langfuse==4.14.1 SDK's actual
+signatures, checked via introspection rather than assumed.
 """
 
 from __future__ import annotations
