@@ -29,13 +29,16 @@ from src.ingest.pid_store import _load_manifest, load
 from src.markup.overlay import render_markup
 from src.observability.logging import get_logger
 from src.observability.tracing import new_trace
+from src.webapp.middleware import RequestContextMiddleware
+from src.webapp.schemas import ChatRequest, ChatResponse, VersionResponse
 
 logger = get_logger("webapp")
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="Document Delta & Grounded Chat", version=__version__)
+app.add_middleware(RequestContextMiddleware)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
-# Prometheus scrape target — see prometheus.yml + grafana/ for the dashboard
+# Prometheus scrape target — see prometheus/prometheus.yml + grafana/ for the dashboard
 # that reads these exact deltachat_* metric names (observability/prometheus_metrics.py).
 app.mount("/metrics", make_asgi_app())
 templates = Jinja2Templates(directory=str(HERE / "templates"))
@@ -149,35 +152,34 @@ def chat_page(request: Request, pid_a: str | None = None, pid_b: str | None = No
     return templates.TemplateResponse(request, "chat.html", {"pid_a": pid_a, "pid_b": pid_b, "pids": pids})
 
 
-@app.post("/api/chat")
-def api_chat(payload: dict):
+@app.post("/api/chat", response_model=ChatResponse)
+def api_chat(payload: ChatRequest) -> ChatResponse:
     import uuid
 
-    pid_a, pid_b, question = payload["pid_a"], payload["pid_b"], payload["question"]
-    session_id = payload.get("session_id") or str(uuid.uuid4())
-    index = _get_index(pid_a, pid_b)
-    with new_trace(kind="ui_chat", pid_a=pid_a, pid_b=pid_b, question=question, session_id=session_id) as trace:
-        result = answer_question(question, index, trace)
+    session_id = payload.session_id or str(uuid.uuid4())
+    index = _get_index(payload.pid_a, payload.pid_b)
+    with new_trace(
+        kind="ui_chat", pid_a=payload.pid_a, pid_b=payload.pid_b, question=payload.question, session_id=session_id
+    ) as trace:
+        result = answer_question(payload.question, index, trace)
 
     from src.storage.session_store import get_session_store
 
     get_session_store().append_turn(
-        session_id, question, result.answer, pid_a=pid_a, pid_b=pid_b,
+        session_id, payload.question, result.answer, pid_a=payload.pid_a, pid_b=payload.pid_b,
         grounded=result.grounded, model=result.model, request_id=trace.request_id,
     )
 
-    return JSONResponse(
-        {
-            "answer": result.answer,
-            "grounded": result.grounded,
-            "citations": result.citations_used,
-            "model": result.model,
-            "cost_usd": result.cost_usd,
-            "input_tokens": result.input_tokens,
-            "output_tokens": result.output_tokens,
-            "request_id": trace.request_id,
-            "session_id": session_id,
-        }
+    return ChatResponse(
+        answer=result.answer,
+        grounded=result.grounded,
+        citations=result.citations_used,
+        model=result.model,
+        cost_usd=result.cost_usd,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        request_id=trace.request_id,
+        session_id=session_id,
     )
 
 
@@ -191,7 +193,10 @@ def api_chat_session(session_id: str):
 @app.get("/eval", response_class=HTMLResponse)
 def eval_page(request: Request):
     results_dir = Path("eval/results")
-    files = sorted(results_dir.glob("*.json")) if results_dir.exists() else []
+    # latest_metrics.json is the flat DVC-metrics summary (dvc.yaml), not a
+    # timestamped scorecard — excluded here or every history/diff read below
+    # breaks on its different schema (no "timestamp"/"delta"/"chat" keys).
+    files = sorted(f for f in results_dir.glob("*.json") if f.name != "latest_metrics.json") if results_dir.exists() else []
     latest = json.loads(files[-1].read_text()) if files else None
     history = [json.loads(f.read_text()) for f in files[-10:]] if files else []
     return templates.TemplateResponse(
@@ -326,6 +331,6 @@ def api_pids():
     return JSONResponse(_known_pids())
 
 
-@app.get("/api/version")
-def api_version():
-    return JSONResponse({"version": __version__})
+@app.get("/api/version", response_model=VersionResponse)
+def api_version() -> VersionResponse:
+    return VersionResponse(version=__version__)

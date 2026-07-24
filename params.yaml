@@ -1,0 +1,26 @@
+# DVC pipeline parameters (dvc.yaml) — the tunable knobs that affect delta/
+# retrieval output, tracked here so `dvc repro`/`dvc params diff` know when
+# a threshold change should invalidate downstream pipeline stages.
+#
+# Mirrors the defaults in .env.example / src/config.py. Honest limitation,
+# stated plainly: these values document the pipeline's parameter surface
+# and drive DVC's own change-detection — actually *changing app behavior*
+# still means setting the matching env var (FUZZY_MATCH_THRESHOLD=...),
+# since src/config.py's env-var-driven Settings is the one source of truth
+# the running app reads from. Keeping two independently-editable configs
+# fully in sync automatically would mean either the DVC pipeline or normal
+# `make eval` runs stop being able to override thresholds per-invocation —
+# not a trade worth making for this project's size.
+
+delta:
+  fuzzy_match_threshold: 78.0
+  spatial_match_max_dist: 60.0
+  modified_text_threshold: 99.5
+
+retrieval:
+  top_k: 8
+  min_score: 0.05
+
+ocr:
+  dpi: 300
+  psm: 11

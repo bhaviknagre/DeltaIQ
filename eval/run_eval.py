@@ -195,13 +195,33 @@ def print_scorecard(delta_results: dict, chat_results: dict) -> None:
 
 def save_and_diff(delta_results: dict, chat_results: dict, passed: bool) -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    prior_files = sorted(RESULTS_DIR.glob("*.json"))
+    # latest_metrics.json (the flat DVC-metrics summary written below) isn't
+    # a timestamped scorecard — excluded so it's never mistaken for "the
+    # previous run" when computing the diff.
+    prior_files = sorted(f for f in RESULTS_DIR.glob("*.json") if f.name != "latest_metrics.json")
     prior = json.loads(prior_files[-1].read_text()) if prior_files else None
 
     payload = {"timestamp": time.time(), "delta": delta_results, "chat": chat_results, "passed": passed}
     out_path = RESULTS_DIR / f"{int(time.time())}.json"
     out_path.write_text(json.dumps(payload, indent=2))
     print(f"\nSaved scorecard -> {out_path}")
+
+    # Flat, stable-path summary for `dvc metrics show`/`dvc metrics diff` —
+    # DVC diffs a metrics file against its previous git-committed content, so
+    # it needs one fixed path, unlike the timestamped run-history files above
+    # (which back the web UI's trend chart and shouldn't be flattened away).
+    metrics_summary = {
+        "delta_native_f1": delta_results.get("native", {}).get("f1"),
+        "delta_native_precision": delta_results.get("native", {}).get("precision"),
+        "delta_native_recall": delta_results.get("native", {}).get("recall"),
+        "delta_scanned_f1": delta_results.get("scanned", {}).get("f1"),
+        "delta_scanned_ocr_accuracy": delta_results.get("scanned", {}).get("ocr_accuracy"),
+        "chat_accuracy": chat_results["accuracy"],
+        "chat_groundedness_rate": chat_results["groundedness_rate"],
+        "chat_citation_accuracy": chat_results["citation_accuracy"],
+        "passed": passed,
+    }
+    (RESULTS_DIR / "latest_metrics.json").write_text(json.dumps(metrics_summary, indent=2))
 
     if prior:
         print("\nDiff vs previous run:")

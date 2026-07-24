@@ -5,6 +5,10 @@ __pycache__/
 logs/*.jsonl
 traces/*.json
 eval/results/*.json
+# latest_metrics.json is a DVC metric (dvc.yaml, cache: false) — plain git-
+# tracked on purpose so `dvc metrics diff`/`git diff` show score changes
+# across commits; the timestamped per-run files above stay ignored.
+!eval/results/latest_metrics.json
 output/
 data/renders/
 data/pid_store/pids.json

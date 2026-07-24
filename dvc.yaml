@@ -1,0 +1,32 @@
+stages:
+  samples:
+    cmd: python -m data.samples.build_synthetic_pairs
+    deps:
+      - data/samples/raw
+      - data/samples/build_synthetic_pairs.py
+    outs:
+      - data/samples/pair_native
+      - data/samples/pair_scanned
+      - data/samples/ground_truth.json
+
+  eval:
+    cmd: python -m eval.run_eval
+    deps:
+      - data/samples/pair_native
+      - data/samples/pair_scanned
+      - data/samples/ground_truth.json
+      - eval/run_eval.py
+      - eval/metrics.py
+      - eval/datasets
+      - src/delta
+      - src/chat
+    params:
+      - params.yaml:
+          - delta.fuzzy_match_threshold
+          - delta.spatial_match_max_dist
+          - delta.modified_text_threshold
+          - retrieval.top_k
+          - retrieval.min_score
+    metrics:
+      - eval/results/latest_metrics.json:
+          cache: false

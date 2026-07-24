@@ -7,7 +7,7 @@ retroactively by scanning files after the fact, not continuously.
 
 Named `deltachat_*` throughout. Scraped via GET /metrics on the FastAPI app
 (src/webapp/app.py, mounted with prometheus_client's ASGI app) — see
-prometheus.yml for the scrape config and the "grafana/" directory for a
+prometheus/prometheus.yml for the scrape config and the "grafana/" directory for a
 starter dashboard against these exact metric names.
 
 Wired into src/observability/tracing.py generically (every span's duration

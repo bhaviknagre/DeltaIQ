@@ -1,0 +1,11 @@
+{
+  "delta_native_f1": 1.0,
+  "delta_native_precision": 1.0,
+  "delta_native_recall": 1.0,
+  "delta_scanned_f1": 0.75,
+  "delta_scanned_ocr_accuracy": 0.8698,
+  "chat_accuracy": 0.857,
+  "chat_groundedness_rate": 0.833,
+  "chat_citation_accuracy": 0.571,
+  "passed": true
+}

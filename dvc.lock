@@ -1,0 +1,81 @@
+schema: '2.0'
+stages:
+  samples:
+    cmd: python -m data.samples.build_synthetic_pairs
+    deps:
+    - path: data/samples/build_synthetic_pairs.py
+      hash: md5
+      md5: 21ccc6ef3bb0eaa0ad73adb836319dd6
+      size: 6285
+    - path: data/samples/raw
+      hash: md5
+      md5: b8bd401920f937a25f24f9c89ee032dd.dir
+      size: 983724
+      nfiles: 2
+    outs:
+    - path: data/samples/ground_truth.json
+      hash: md5
+      md5: 2801ffc70abca58f76fffaaa6ee95fa4
+      size: 5262
+    - path: data/samples/pair_native
+      hash: md5
+      md5: 25bbe88cb28f88952d6b512e8b5d0673.dir
+      size: 1186944
+      nfiles: 2
+    - path: data/samples/pair_scanned
+      hash: md5
+      md5: ce7c468e93b8e11ae691a8794d322e7a.dir
+      size: 104498172
+      nfiles: 2
+  eval:
+    cmd: python -m eval.run_eval
+    deps:
+    - path: data/samples/ground_truth.json
+      hash: md5
+      md5: 2801ffc70abca58f76fffaaa6ee95fa4
+      size: 5262
+    - path: data/samples/pair_native
+      hash: md5
+      md5: 25bbe88cb28f88952d6b512e8b5d0673.dir
+      size: 1186944
+      nfiles: 2
+    - path: data/samples/pair_scanned
+      hash: md5
+      md5: ce7c468e93b8e11ae691a8794d322e7a.dir
+      size: 104498172
+      nfiles: 2
+    - path: eval/datasets
+      hash: md5
+      md5: 2e62eca289978574aa9964309b28434f.dir
+      size: 2091
+      nfiles: 2
+    - path: eval/metrics.py
+      hash: md5
+      md5: 31e93d96f0acd0eb2ffea467b0f89110
+      size: 5827
+    - path: eval/run_eval.py
+      hash: md5
+      md5: 5e12e47209577a9d7af3e903867267b4
+      size: 11165
+    - path: src/chat
+      hash: md5
+      md5: e378d11f2050cef6b8761833f5068d60.dir
+      size: 69864
+      nfiles: 10
+    - path: src/delta
+      hash: md5
+      md5: 96b9d2f92b865fda8dfbd7d1e30c181b.dir
+      size: 47343
+      nfiles: 10
+    params:
+      params.yaml:
+        delta.fuzzy_match_threshold: 78.0
+        delta.modified_text_threshold: 99.5
+        delta.spatial_match_max_dist: 60.0
+        retrieval.min_score: 0.05
+        retrieval.top_k: 8
+    outs:
+    - path: eval/results/latest_metrics.json
+      hash: md5
+      md5: a096ae157aaec7dfcd41b3e49250677b
+      size: 273
