@@ -240,6 +240,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../demo/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Demo walkthrough
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../architecture/" class="md-tabs__link">
         
   
@@ -500,6 +519,28 @@
   
   
     <li class="md-nav__item">
+      <a href="../demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Demo walkthrough
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../architecture/" class="md-nav__link">
         
   
@@ -637,6 +678,15 @@
   <a href="#llm-providers-srcchatllmpy" class="md-nav__link">
     <span class="md-ellipsis">
       LLM providers (src/chat/llm.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentic-mode-srcchatagenticpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agentic mode (src/chat/agentic.py)
     </span>
   </a>
   
@@ -845,6 +895,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentic-mode-srcchatagenticpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agentic mode (src/chat/agentic.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
     <span class="md-ellipsis">
       Example
@@ -947,6 +1006,49 @@ took down the CLI process before this boundary existed.</p>
 </table>
 <p>Switching providers is a <code>.env</code> change (<code>LLM_PROVIDER</code> + the matching key),
 never a code change.</p>
+<h2 id="agentic-mode-srcchatagenticpy">Agentic mode (<code>src/chat/agentic.py</code>)<a class="headerlink" href="#agentic-mode-srcchatagenticpy" title="Permanent link">&para;</a></h2>
+<p>The grounding/refusal pipeline above is one retrieve → LLM → parse-citations
+round trip: it trusts whatever citations the LLM attaches to its answer.
+<code>chat/agentic.py</code> is an additive alternative — a <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a>
+<code>StateGraph</code> that adds one real self-correction step on top:</p>
+<div class="highlight"><pre><span></span><code>retrieve -&gt; generate -&gt; verify_citations -+-&gt; END (verified, or a clean hedge)
+               ^                          |
+               +---- widen + retry &lt;------+  (citation not among retrieved evidence)
+</code></pre></div>
+<p><strong>What verification checks</strong>: every bracketed citation label the LLM used
+(<code>[pid_a:...]</code>, <code>[delta:...]</code>) must belong to a chunk that was actually
+retrieved for this question. An LLM can produce a citation that's
+well-formed but not grounded in anything retrieved — right shape, wrong (or
+no) source — which the simple pipeline above has no way to notice, since it
+only checks that <em>a</em> citation-shaped string is present in the text. On a
+failed verification, retrieval is widened (3x <code>top_k</code>, half <code>min_score</code>) and
+the question is re-answered, up to <code>AGENTIC_MAX_RETRIES</code> (default 2) times,
+before returning the last answer produced with <code>verified=False</code> rather than
+looping forever.</p>
+<p><strong>Not a second LLM integration</strong>: <code>chat/llm.py</code> still owns every provider
+integration, the mock/no-key fallback, and cost telemetry, completely
+unchanged — <code>chat/langchain_llm.py</code> adds exactly one seam,
+<code>ProviderBackedChatModel</code>, a LangChain <code>BaseChatModel</code> whose <code>_generate</code>
+delegates straight to <code>LLMProvider.complete</code>. LangGraph's nodes get a
+message-based interface to call; the provider logic itself is never
+duplicated.</p>
+<p>Opt in per call:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>src.cli<span class="w"> </span>chat<span class="w"> </span><span class="m">26</span>-9026-REV-A<span class="w"> </span><span class="m">26</span>-9026-REV-B<span class="w"> </span>--agentic<span class="w"> </span>-q<span class="w"> </span><span class="s2">&quot;What changed with tag 26-KA-902?&quot;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="err">POST</span><span class="w"> </span><span class="err">/api/cha</span><span class="kc">t</span>
+<span class="p">{</span><span class="nt">&quot;pid_a&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;26-9026-REV-A&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pid_b&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;26-9026-REV-B&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;question&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;agentic&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+</code></pre></div>
+<p>or globally via <code>CHAT_BACKEND=agentic</code> in <code>.env</code> (both call sites above
+default to this setting when the flag/field is omitted). In this mode,
+<code>AnswerResult</code> becomes <code>AgenticAnswerResult</code> — a strict superset adding
+<code>verified: bool</code>, <code>attempts: int</code>, and <code>verification_notes: list[str]</code>;
+<code>chat/answer.py</code> and its existing callers are untouched.</p>
+<p>Covered by <code>tests/test_agentic_chat.py</code> (happy path, a hallucinated-citation
+provider that gets retried then gives up, provider-failure degradation, and
+the no-evidence hedge) and by <code>scripts/checks/check_chat.py</code> against
+whichever real provider is currently configured. Not yet wired into
+<code>eval/run_eval.py</code> — the scorecard still measures the simple pipeline only
+(see the project README's "What's next with more time").</p>
 <h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>$ python -m src.cli chat 26-9026-REV-A 26-9026-REV-B -q &quot;What changed with tag 26-KA-902?&quot;
 
