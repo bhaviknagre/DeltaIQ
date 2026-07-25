@@ -117,7 +117,13 @@ def build_native_pair() -> None:
     rev_b_path = NATIVE_DIR / "rev_b.pdf"
 
     doc_a = fitz.open(src)
-    doc_a.save(rev_a_path)
+    # no_new_id: PyMuPDF stamps a fresh, effectively-random /ID into the PDF
+    # trailer on every save by default (per the PDF spec's own recommendation),
+    # so re-running this script produced a byte-different file each time even
+    # with identical edits — permanently drifting `dvc.lock` (data/samples/*
+    # is a tracked DVC output) on every regeneration. Deterministic output is
+    # what actually matters here: no downstream code depends on the file ID.
+    doc_a.save(rev_a_path, no_new_id=True)
     doc_a.close()
 
     doc_b = fitz.open(src)
@@ -135,7 +141,7 @@ def build_native_pair() -> None:
             x0, y0, x1, y1 = edit["bbox"]
             page.insert_text((x0, y1 - 1.0), edit["new_text"], fontsize=edit["size"], fontname="helv", color=(0, 0, 0))
 
-    doc_b.save(rev_b_path)
+    doc_b.save(rev_b_path, no_new_id=True)
     doc_b.close()
     print(f"native pair -> {rev_a_path}, {rev_b_path}")
 
@@ -154,7 +160,7 @@ def build_scanned_pair() -> None:
         out_page = out_doc.new_page(width=page.rect.width, height=page.rect.height)
         out_page.insert_image(out_page.rect, pixmap=pix)
         out_path = SCANNED_DIR / f"{name}.pdf"
-        out_doc.save(out_path)
+        out_doc.save(out_path, no_new_id=True)
         out_doc.close()
         doc.close()
         print(f"scanned pair -> {out_path} (image-only, {dpi}dpi, no text layer)")

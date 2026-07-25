@@ -5,8 +5,8 @@ stages:
     deps:
     - path: data/samples/build_synthetic_pairs.py
       hash: md5
-      md5: a7d9173af8c0fd8d2b0f2df95d754d32
-      size: 6293
+      md5: fdcb3e219aa3f0d0092ab3ca96a48327
+      size: 6810
     - path: data/samples/raw
       hash: md5
       md5: b8bd401920f937a25f24f9c89ee032dd.dir
@@ -19,13 +19,13 @@ stages:
       size: 5270
     - path: data/samples/pair_native
       hash: md5
-      md5: f9a5c3860a5d55fdfbe322e6c431b3b9.dir
-      size: 1186944
+      md5: 8e6194161b450286c5e118eaa07aba0c.dir
+      size: 1186871
       nfiles: 2
     - path: data/samples/pair_scanned
       hash: md5
-      md5: c487c4079638ae8fd0f7775c72b95d60.dir
-      size: 104498172
+      md5: f56d4bb3329c26c9229975561b0b3ec2.dir
+      size: 104498026
       nfiles: 2
   eval:
     cmd: python -m eval.run_eval
@@ -36,13 +36,13 @@ stages:
       size: 5270
     - path: data/samples/pair_native
       hash: md5
-      md5: f9a5c3860a5d55fdfbe322e6c431b3b9.dir
-      size: 1186944
+      md5: 8e6194161b450286c5e118eaa07aba0c.dir
+      size: 1186871
       nfiles: 2
     - path: data/samples/pair_scanned
       hash: md5
-      md5: c487c4079638ae8fd0f7775c72b95d60.dir
-      size: 104498172
+      md5: f56d4bb3329c26c9229975561b0b3ec2.dir
+      size: 104498026
       nfiles: 2
     - path: eval/datasets
       hash: md5
@@ -77,5 +77,5 @@ stages:
     outs:
     - path: eval/results/latest_metrics.json
       hash: md5
-      md5: a3625333f55a1f589453c30db9e0f3f4
-      size: 271
+      md5: 2df320b4e12305cc47a80f651bea4fd6
+      size: 273
