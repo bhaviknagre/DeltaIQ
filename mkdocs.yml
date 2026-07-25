@@ -46,6 +46,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Demo walkthrough: demo.md
   - Architecture: architecture.md
   - Ingestion & formats: formats.md
   - Delta engine & criticality: delta-engine.md
