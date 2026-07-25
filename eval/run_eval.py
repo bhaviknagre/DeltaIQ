@@ -1,21 +1,3 @@
-"""Runnable eval harness: `make eval` (or `python -m eval.run_eval`).
-
-Scores the delta engine (precision/recall/F1 against hand-labeled ground
-truth) on both the native-PDF and scanned-PDF demo pairs, scores grounded
-chat (correctness, groundedness rate, citation accuracy) on a labeled Q&A
-set, and computes real OCR accuracy, latency, token usage, and estimated
-cost from the actual requests just run — not placeholder numbers. Prints a
-scorecard with a PASS/FAIL banner, writes a timestamped JSON result under
-eval/results/ for run-to-run comparison, and prints the diff against the
-previous run if one exists — so a change can be shown to help or hurt.
-
-PASS thresholds (PASS_THRESHOLDS below) are a judgment call, not handed down
-by spec — chosen to reflect "good enough to trust, not perfect": delta F1 and
-chat accuracy/groundedness at 0.75 allow for the honest, known OCR-precision
-and BM25-paraphrase gaps documented in the README without masking a real
-regression below that floor.
-"""
-
 from __future__ import annotations
 
 import json
@@ -70,9 +52,6 @@ def run_delta_eval() -> dict:
             "ocr_accuracy": None,
         }
 
-    # OCR accuracy: compare the scanned pair's OCR output against the native
-    # pair's text-layer ground truth for the same underlying document (see
-    # score_ocr_accuracy docstring). Only meaningful if both pairs are present.
     if "native" in docs_by_pair and "scanned" in docs_by_pair:
         native_a, native_b = docs_by_pair["native"]
         scanned_a, scanned_b = docs_by_pair["scanned"]
@@ -195,9 +174,6 @@ def print_scorecard(delta_results: dict, chat_results: dict) -> None:
 
 def save_and_diff(delta_results: dict, chat_results: dict, passed: bool) -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    # latest_metrics.json (the flat DVC-metrics summary written below) isn't
-    # a timestamped scorecard — excluded so it's never mistaken for "the
-    # previous run" when computing the diff.
     prior_files = sorted(f for f in RESULTS_DIR.glob("*.json") if f.name != "latest_metrics.json")
     prior = json.loads(prior_files[-1].read_text()) if prior_files else None
 
@@ -205,11 +181,6 @@ def save_and_diff(delta_results: dict, chat_results: dict, passed: bool) -> None
     out_path = RESULTS_DIR / f"{int(time.time())}.json"
     out_path.write_text(json.dumps(payload, indent=2))
     print(f"\nSaved scorecard -> {out_path}")
-
-    # Flat, stable-path summary for `dvc metrics show`/`dvc metrics diff` —
-    # DVC diffs a metrics file against its previous git-committed content, so
-    # it needs one fixed path, unlike the timestamped run-history files above
-    # (which back the web UI's trend chart and shouldn't be flattened away).
     metrics_summary = {
         "delta_native_f1": delta_results.get("native", {}).get("f1"),
         "delta_native_precision": delta_results.get("native", {}).get("precision"),

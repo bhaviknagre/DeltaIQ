@@ -1,11 +1,3 @@
-# Deliberately does NOT inline the dashboard JSON/datasource YAML here —
-# that content already lives at grafana/provisioning/{datasources,dashboards}/
-# at the repo root (used by docker-compose --profile full too). Duplicating
-# it into this file would drift the moment either copy is edited and the
-# other isn't. Instead, k8s/scripts/deploy.sh generates the
-# grafana-dashboards/grafana-datasources ConfigMaps this Deployment mounts,
-# directly from those same source files, every time it runs — one source
-# of truth, two consumers (compose locally, this Deployment in-cluster).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,11 +28,6 @@ spec:
               value: "true"
             - name: GF_AUTH_ANONYMOUS_ORG_ROLE
               value: "Viewer"
-            # Ingress routes /grafana/* here (see k8s/ingress/ingress.yaml) —
-            # without these two, Grafana serves its JS/CSS assets from `/`
-            # regardless of the subpath it's actually reached at, and every
-            # asset 404s behind the proxy. The classic "Grafana behind an
-            # ingress subpath" fix.
             - name: GF_SERVER_ROOT_URL
               value: "%(protocol)s://%(domain)s/grafana/"
             - name: GF_SERVER_SERVE_FROM_SUB_PATH
@@ -87,10 +74,6 @@ metadata:
   name: grafana-dashboard-provider
   namespace: delta-chat
 data:
-  # Points Grafana's dashboard-loading provider at the mount path above
-  # (/var/lib/grafana/dashboards) rather than /etc/grafana/provisioning/
-  # dashboards itself — Grafana's file provider expects dashboard JSON in a
-  # separate directory from the provider config that points at it.
   dashboards.yml: |
     apiVersion: 1
     providers:

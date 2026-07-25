@@ -1,12 +1,3 @@
-"""Minimal web UI: FastAPI + server-rendered Jinja2 templates + hand-rolled
-SVG charts (static/charts.js, no CDN dependency — keeps the whole thing
-self-contained and usable offline). Not the system of record: it's a thin
-view over the same src/cli.py-equivalent calls (ingest -> delta -> report,
-chat, eval), so nothing here duplicates business logic.
-
-Run: make ui  (uvicorn src.webapp.app:app --reload --port 8000)
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,19 +30,12 @@ HERE = Path(__file__).resolve().parent
 app = FastAPI(title="DeltaIQ", version=__version__)
 app.add_middleware(RequestContextMiddleware)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
-# Prometheus scrape target — see prometheus/prometheus.yml + grafana/ for the dashboard
-# that reads these exact deltachat_* metric names (observability/prometheus_metrics.py).
 app.mount("/metrics", make_asgi_app())
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 templates.env.globals["app_version"] = __version__
-
-# Demo-scope in-memory cache: ingest+delta recomputation is cheap for a
-# single-sheet sample but not something to redo on every page navigation.
-# A real deployment would back this with a proper cache/store, not a process
-# dict — documented as a scope simplification, not hidden.
 _doc_cache: dict[str, CanonicalDocument] = {}
 _delta_cache: dict[tuple[str, str], DeltaResult] = {}
-_index_cache: dict[tuple[str, str], object] = {}  # whichever retriever RETRIEVAL_BACKEND selects
+_index_cache: dict[tuple[str, str], object] = {}  
 
 
 def _get_doc(pid: str) -> CanonicalDocument:
@@ -86,7 +70,7 @@ def home(request: Request):
 
 @app.post("/run")
 def run(pid_a: str = Form(...), pid_b: str = Form(...)):
-    _get_delta(pid_a, pid_b)  # populate cache; failures surface as a 500 with traceback (see below)
+    _get_delta(pid_a, pid_b)  
     return RedirectResponse(url=f"/results?pid_a={pid_a}&pid_b={pid_b}", status_code=303)
 
 
@@ -201,9 +185,6 @@ def api_chat_session(session_id: str):
 @app.get("/eval", response_class=HTMLResponse)
 def eval_page(request: Request):
     results_dir = Path("eval/results")
-    # latest_metrics.json is the flat DVC-metrics summary (dvc.yaml), not a
-    # timestamped scorecard — excluded here or every history/diff read below
-    # breaks on its different schema (no "timestamp"/"delta"/"chat" keys).
     files = sorted(f for f in results_dir.glob("*.json") if f.name != "latest_metrics.json") if results_dir.exists() else []
     latest = json.loads(files[-1].read_text()) if files else None
     history = [json.loads(f.read_text()) for f in files[-10:]] if files else []
@@ -242,7 +223,7 @@ def _check_backend(name: str, configured: bool, probe) -> dict:
     try:
         detail = probe()
         return {"name": name, "status": "up", "detail": detail}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         return {"name": name, "status": "down", "detail": f"{type(exc).__name__}: {exc}"}
 
 

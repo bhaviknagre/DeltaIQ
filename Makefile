@@ -108,9 +108,6 @@ check-dvc:
 check-k8s:
 	$(PY) -m scripts.checks.check_k8s
 
-# DVC pipeline (dvc.yaml): samples -> eval, with delta/retrieval thresholds
-# tracked in params.yaml. `dvc repro` only re-runs stages whose deps/params
-# actually changed since the last run.
 dvc-repro:
 	$(VENV)/dvc repro
 
@@ -124,7 +121,6 @@ version:
 	@$(PY) -c "from src._version import __version__; print(__version__)"
 
 # --- Infra (MongoDB, Redis, MinIO, Chroma, Prometheus, Grafana) ---
-# Opt-in: the app runs with zero-infra defaults without any of this.
 infra-up:
 	docker compose --profile full up -d
 	@echo "mongo:27017  redis:6379  minio:9000 (console :9001)  chroma:8100  prometheus:9090  grafana:3000"

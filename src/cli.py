@@ -1,13 +1,3 @@
-"""Command-line entrypoint. One documented command runs ingest -> delta ->
-report -> chat, per the assignment's reproducible-run requirement.
-
-Usage:
-    python -m src.cli register <pid> <path> [--label ...]
-    python -m src.cli run <pid_a> <pid_b> [--out-dir ...]
-    python -m src.cli chat <pid_a> <pid_b> [-q "question"]
-    python -m src.cli markup <pid_a> <pid_b> [--out ...]
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

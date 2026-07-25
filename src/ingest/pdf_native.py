@@ -1,11 +1,8 @@
-"""Native (born-digital) PDF adapter: pulls the real text layer + line-level
-bounding boxes directly out of the PDF via PyMuPDF. No OCR involved."""
-
 from __future__ import annotations
 
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import fitz  
 
 from src.canonical.model import BoundingBox, CanonicalDocument, DocumentMeta, Element, Page
 from src.ingest.base import FormatAdapter

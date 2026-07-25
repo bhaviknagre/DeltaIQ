@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: flower
-          image: delta-chat:latest  # same image as api/ — see k8s/api/deployment.yaml note
+          image: delta-chat:latest  
           command: ["celery", "-A", "src.tasks.celery_app", "flower", "--port=5555"]
           ports:
             - containerPort: 5555

@@ -1,22 +1,3 @@
-"""DWG adapter — real stub behind the FormatAdapter seam.
-
-DWG is Autodesk's closed binary format; parsing it for real requires either
-the ODA File Converter or the Autodesk SDK to convert DWG -> DXF first (DXF
-is the open, text-based sibling format). Neither is a pip-installable,
-license-free dependency, so it's out of scope to wire up genuinely in this
-window (see README "what we cut").
-
-What *is* real here: this adapter parses actual DXF files with `ezdxf`
-(pure-Python, no license required), extracting TEXT/MTEXT entities as
-elements and LINE/LWPOLYLINE/CIRCLE entities as GEOMETRY elements, each with
-a real bounding box and DXF layer name. In a production build, the only
-missing piece is a conversion shim (`oda_file_converter DWG -> DXF`) in
-front of this same `parse()` — the adapter, canonical model, delta engine,
-and chat layer would not change at all. That's the point of the seam: this
-class proves DWG/DXF plugs into the same interface as the PDF adapters
-without the delta/chat code knowing or caring.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

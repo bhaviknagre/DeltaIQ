@@ -14,7 +14,7 @@ make ui   # http://localhost:8000
 
 Pick two registered PIDs, run the delta, and see:
 
-- **Canonical representation** summary cards per document — pages, elements,
+- **Canonical representation** summary cards per  document — pages, elements,
   tables, dimensions, tags, notes (`CanonicalDocument.summary()`). Tables
   honestly show `0` — no adapter currently detects tabular regions, and the
   UI says so rather than hiding it.

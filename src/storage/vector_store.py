@@ -1,19 +1,3 @@
-"""Vector store: segregates embeddings from metadata (metadata_store.py) and
-raw file bytes (blob_store.py). One interface, two implementations:
-
-  - ChromaVectorStore (default): embedded, persistent, local-disk Chroma —
-    no server process required, no API key, works offline. Can also point
-    at a standalone Chroma server (CHROMA_HOST) for the docker-compose
-    "full stack" profile.
-  - PineconeVectorStore: managed/cloud, needs PINECONE_API_KEY. The
-    "production, don't want to run/scale a vector DB yourself" option.
-
-Chroma is the default specifically because it needs no account/credit card/
-network access to work at all — same reasoning as MockProvider/GroqProvider/
-HashingEmbedder elsewhere in this project: real infrastructure should be
-opt-in, not a hard requirement to run the system.
-"""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -30,7 +14,7 @@ class VectorHit:
     id: str
     text: str
     metadata: dict
-    score: float  # higher is more similar, normalized to roughly [0, 1]
+    score: float  
 
 
 class VectorStore(ABC):
@@ -80,17 +64,13 @@ class ChromaVectorStore(VectorStore):
         metas = result["metadatas"][0]
         dists = result["distances"][0]
         for id_, doc, meta, dist in zip(ids, docs, metas, dists):
-            # Chroma returns squared L2 distance by default; convert to a
-            # roughly [0,1] similarity score (1 = identical) for a consistent
-            # scale with the BM25 index's normalized scores in hybrid mode.
-            score = float(1.0 / (1.0 + dist))  # Chroma may return numpy floats; keep this JSON-serializable
             hits.append(VectorHit(id=id_, text=doc, metadata=meta or {}, score=score))
         return hits
 
     def delete_collection(self, collection: str) -> None:
         try:
             self._client.delete_collection(collection)
-        except Exception:  # noqa: BLE001 - fine if it didn't exist
+        except Exception:  
             pass
 
 
@@ -111,11 +91,6 @@ class PineconeVectorStore(VectorStore):
                 spec=ServerlessSpec(cloud="aws", region="us-east-1"),
             )
         self._index = self._pc.Index(self._index_name)
-
-    # Pinecone rejects a single upsert request over 1000 vectors outright
-    # (found live: a real document's ~1200 chunks 400'd in one call) — 100
-    # is Pinecone's own documented recommended batch size for throughput,
-    # well under the hard cap.
     _UPSERT_BATCH_SIZE = 100
 
     def upsert(self, collection: str, ids: list[str], embeddings: list[list[float]],
@@ -139,12 +114,6 @@ class PineconeVectorStore(VectorStore):
         return hits
 
     def delete_collection(self, collection: str) -> None:
-        # Unlike Chroma's get_or_create/delete (idempotent even for a
-        # namespace that's never existed), Pinecone's delete(delete_all=True)
-        # 404s on a brand-new namespace — found live testing a fresh
-        # collection name for the first time. Deleting nothing because there
-        # was nothing to delete is exactly the outcome we want, so swallow
-        # only that specific case.
         from pinecone.exceptions import NotFoundException
 
         try:
@@ -154,8 +123,6 @@ class PineconeVectorStore(VectorStore):
 
 
 class NullVectorStore(VectorStore):
-    """VECTOR_STORE=none — retrieval falls back to pure BM25. Lets
-    RETRIEVAL_BACKEND stay bm25 without importing chromadb/pinecone at all."""
 
     name = "none"
 
@@ -176,7 +143,7 @@ def get_vector_store() -> VectorStore:
             return ChromaVectorStore()
         if backend == "pinecone" and settings.pinecone_api_key:
             return PineconeVectorStore()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc: 
         log_event(logger, 40, "vector_store_init_failed_falling_back_to_none", backend=backend, error=str(exc))
         return NullVectorStore()
     return NullVectorStore()

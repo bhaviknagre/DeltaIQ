@@ -1,6 +1,3 @@
-"""Seeds data/pid_store/pids.json with the sample PID pairs used for demos
-and eval. Run once after `make setup` (or automatically via `make run`)."""
-
 from __future__ import annotations
 
 from src.ingest.pid_store import register_pid

@@ -1,12 +1,3 @@
-"""Pydantic request/response models for the JSON API routes.
-
-Before this, /api/chat took a raw `payload: dict` — no validation, no
-OpenAPI schema, and a missing field surfaced as an unhandled KeyError (500)
-instead of a clean 422. The HTML-form routes (/run, /markup/download) stay
-on FastAPI's Form(...) params, which already validate — schemas here cover
-the JSON API surface specifically.
-"""
-
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

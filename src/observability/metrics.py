@@ -1,11 +1,3 @@
-"""Aggregate metrics from written trace files.
-
-Satisfies the "metrics surfaced somewhere inspectable" requirement without
-standing up Prometheus/Grafana: every trace is already a JSON file on disk
-(see tracing.py), so metrics are a reduction over traces/*.json. Run via
-`make metrics` or `python -m src.observability.metrics`.
-"""
-
 from __future__ import annotations
 
 import json

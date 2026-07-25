@@ -1,11 +1,4 @@
 services:
-  # --- Core app services (zero extra infra required) ---
-  # These use the zero-infra defaults (JSON metadata store, local-disk blobs,
-  # BM25 retrieval, no Celery) unless you also set METADATA_STORE=mongo /
-  # BLOB_STORE=minio / RETRIEVAL_BACKEND=vector|hybrid in .env AND bring up
-  # the `full` profile below — every backend in src/storage/ falls back
-  # gracefully (with a logged warning) if its real infra isn't reachable, so
-  # setting those env vars without the infra running doesn't break anything.
   delta-chat:
     build: .
     env_file:
@@ -16,8 +9,6 @@ services:
       - ./traces:/app/traces
       - ./output:/app/output
       - ./eval/results:/app/eval/results
-    # `docker compose up` runs the reproducible pipeline end to end:
-    # build samples -> seed PIDs -> ingest -> delta -> report.
     command: >
       sh -c "python -m data.samples.build_synthetic_pairs &&
              python -m scripts.seed_pids &&
@@ -61,12 +52,6 @@ services:
       - ./eval/results:/app/eval/results
     command: uvicorn src.webapp.app:app --host 0.0.0.0 --port 8000
     profiles: ["ui"]
-
-  # --- Full production-shaped infra stack (opt-in: --profile full) ---
-  # Ports are published to the host, so this works identically whether the
-  # app runs inside this same compose network or natively on the host
-  # (`make ui` etc. against localhost:*) — exactly how each backend was
-  # developed and verified in this project (see src/storage/*.py docstrings).
   mongo:
     image: mongo:7
     ports:

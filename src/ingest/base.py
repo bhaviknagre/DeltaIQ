@@ -1,12 +1,3 @@
-"""FormatAdapter interface.
-
-Every ingestion format (native PDF, scanned PDF, DWG/DXF, and any future
-format) implements this one interface. The rest of the system — delta
-engine, retrieval, chat, markup — depends only on CanonicalDocument and
-never imports a format-specific adapter directly. To add a 4th format:
-write a class implementing `sniff` + `parse` and register it; nothing else
-in the codebase changes.
-"""
 
 from __future__ import annotations
 

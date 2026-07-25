@@ -1,12 +1,3 @@
-"""Format-agnostic canonical representation.
-
-Every ingestion adapter (native PDF, scanned PDF, DWG/DXF, ...) normalizes its
-source into this model. Everything downstream (delta engine, retrieval, chat,
-markup) only ever sees this model and never touches format-specific bytes
-again. This is the seam described in the assignment: to add a 4th format you
-write one adapter that emits a CanonicalDocument — nothing else changes.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -24,12 +15,12 @@ class ElementType(str, Enum):
     layer both reason about *what kind* of thing changed.
     """
 
-    TAG = "tag"  # equipment/instrument tag, e.g. 26-KA-902, 26-PDI-9054
-    DIMENSION = "dimension"  # numeric dimension / size / tolerance, e.g. 3/4"-DC-26-9026
-    NOTE = "note"  # numbered or free-text note / callout
-    TEXT = "text"  # generic label / text block that isn't one of the above
-    TABLE_CELL = "table_cell"  # cell inside a detected tabular region
-    GEOMETRY = "geometry"  # vector geometry (line/arc/polyline run) — DXF/DWG only
+    TAG = "tag"  
+    DIMENSION = "dimension"  
+    NOTE = "note"  
+    TEXT = "text"  
+    TABLE_CELL = "table_cell"  
+    GEOMETRY = "geometry" 
 
 
 class BoundingBox(BaseModel):
@@ -52,14 +43,14 @@ class BoundingBox(BaseModel):
 class Element(BaseModel):
     """A single located, typed piece of content on a page/sheet."""
 
-    id: str  # stable within one CanonicalDocument, derived from content+position
+    id: str  
     page_index: int
     element_type: ElementType
     text: str
     bbox: BoundingBox
-    confidence: float = 1.0  # extraction confidence (1.0 for native text, OCR conf for scans)
-    source: str = "native"  # "native" | "ocr" | "dxf" | ...
-    attrs: dict = Field(default_factory=dict)  # e.g. {"layer": "..."} for DXF
+    confidence: float = 1.0  
+    source: str = "native"  
+    attrs: dict = Field(default_factory=dict)  
 
     @staticmethod
     def make_id(page_index: int, text: str, bbox: BoundingBox) -> str:
@@ -73,14 +64,13 @@ class Page(BaseModel):
     index: int
     width: float
     height: float
-    label: Optional[str] = None  # sheet name/number if known
+    label: Optional[str] = None  
     elements: list[Element] = Field(default_factory=list)
-    render_path: Optional[str] = None  # optional rasterized PNG for markup overlay
-
+    render_path: Optional[str] = None  
 
 class DocumentMeta(BaseModel):
     pid: str
-    format: str  # "pdf_native" | "pdf_scanned" | "dwg" | "dxf"
+    format: str  
     source_path: str
     revision_label: Optional[str] = None
     page_count: int = 0
@@ -103,11 +93,6 @@ class CanonicalDocument(BaseModel):
         return None
 
     def summary(self) -> dict:
-        """Canonical-representation summary used by the CLI/UI dashboard:
-        pages/elements/tables/dimensions counts. `tables` is honestly 0 for
-        every current adapter — ElementType.TABLE_CELL exists in the model
-        but no adapter currently detects tabular regions (see README "what
-        was cut") — this is not hidden or backfilled with a fake count."""
         counts: dict[str, int] = {}
         for e in self.all_elements():
             counts[e.element_type.value] = counts.get(e.element_type.value, 0) + 1

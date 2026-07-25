@@ -1,16 +1,3 @@
-"""ASGI middleware: every response gets an `X-Request-ID` and
-`X-Process-Time` header, and every HTTP request is counted/timed in
-Prometheus — independent of whether the route handler happens to open a
-homegrown trace (src/observability/tracing.py covers business-logic spans;
-this covers the HTTP layer itself, including routes that don't trace
-anything, like static file serving or a 404).
-
-`X-Request-ID` is honored if the caller already sent one (useful for
-correlating a request across a reverse proxy), generated otherwise —
-propagated into the same contextvar tracing.py's spans read, so a route
-that also opens a homegrown trace shares the same id end to end.
-"""
-
 from __future__ import annotations
 
 import time
@@ -42,9 +29,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         duration = time.time() - start
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = f"{duration:.4f}"
-
-        # Route path template (e.g. "/results", not "/results?pid_a=...")
-        # keeps the metric's cardinality bounded regardless of query params.
         path = request.scope.get("route").path if request.scope.get("route") else request.url.path
         HTTP_REQUESTS_TOTAL.labels(method=request.method, path=path, status=response.status_code).inc()
         HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, path=path).observe(duration)

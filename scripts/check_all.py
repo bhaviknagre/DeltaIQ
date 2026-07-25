@@ -1,26 +1,3 @@
-"""Master check script: runs every scripts/checks/check_*.py in a sensible
-dependency order, in its own subprocess (so a crash in one doesn't take down
-the rest), streams its output live, and prints a final subsystem-by-
-subsystem summary. This is the "is everything working as expected right
-now" script for day-to-day development — `make check`.
-
-Individual checks can still be run standalone when you only care about one
-subsystem, e.g. `python -m scripts.checks.check_delta_engine`. This script
-doesn't replace `make test` (pytest unit/integration tests) or `make eval`
-(the scored eval harness) — it's a faster, coarser-grained "did I break
-something" pass across every subsystem, including ones pytest doesn't cover
-(the web UI's live routes, the docs site build).
-
-By default, output is just PASS/FAIL/timing per sub-check — routine INFO-
-level logging (ingest_start, delta_computed, ...) is quieted, and the two
-checks that deliberately trigger a failure (to verify it's handled, not to
-report a real bug) silence that specific block too, both clearly labeled.
-Full detail is always still written to logs/app.jsonl and traces/*.json.
-Pass --verbose to see everything on the console as well.
-
-Usage: python -m scripts.check_all [--skip-slow] [--verbose] [--traceback]
-"""
-
 from __future__ import annotations
 
 import subprocess
@@ -30,9 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# (module, label, slow?) — order matters: later checks assume earlier
-# subsystems work (e.g. chat checks assume ingestion/delta already ingest
-# correctly), so a failure early tells you where to actually look first.
 CHECKS = [
     ("scripts.checks.check_env", "Environment", False),
     ("scripts.checks.check_ingestion", "Ingestion (native/scanned/DXF)", False),

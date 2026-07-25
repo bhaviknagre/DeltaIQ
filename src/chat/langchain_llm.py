@@ -1,14 +1,3 @@
-"""LangChain-compatible wrapper around the existing provider-agnostic
-LLMProvider (src/chat/llm.py).
-
-This is deliberately NOT a second LLM integration: it owns no API keys, no
-retry logic, no cost math — it delegates every call straight to
-LLMProvider.complete and republishes the result as a LangChain AIMessage.
-That keeps chat/llm.py the single place provider selection, the mock/no-key
-fallback, and token/cost telemetry live, while giving LangGraph nodes
-(src/chat/agentic.py) the message-based interface LangGraph expects.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -23,17 +12,6 @@ from src.chat.llm import LLMProvider, get_provider
 
 
 class ProviderBackedChatModel(BaseChatModel):
-    """Adapts LLMProvider.complete(system, user) -> LangChain's
-    messages-in/AIMessage-out shape. Only system + human messages are
-    supported (this project's chat is single-turn retrieve-then-answer, not
-    multi-turn conversation), which matches exactly what chat/answer.py's
-    SYSTEM_PROMPT + <context>/<question> prompt already assumes.
-
-    Token counts and cost stay attached to the returned AIMessage via
-    response_metadata rather than a side-channel attribute, so they survive
-    however LangGraph/LangChain chooses to pass the message along.
-    """
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     _provider: LLMProvider = PrivateAttr()

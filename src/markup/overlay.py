@@ -1,15 +1,3 @@
-"""Bonus: draws the delta back onto PID B as a redline-style overlay —
-boxes colored by criticality (red/yellow/green), labeled with the change
-kind, exported as an annotated PDF. Only meaningful for formats with a
-renderable page (native/scanned PDF); for a DXF/DWG-sourced document this
-would need a rasterizer first, out of scope here (see README cuts).
-
-Colored by criticality rather than change kind: change kind (added/removed/
-modified) tells you *what* happened, criticality tells you *whether you
-should care* — a removed note and a removed dimension are both "removed"
-but very different in engineering significance (see delta/criticality.py).
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,8 +15,6 @@ COLOR_BY_CRITICALITY = {
 
 
 def render_markup(doc_b_source_path: Path, delta: DeltaResult, out_path: Path) -> Path:
-    """Overlays delta boxes onto the *revised* document's own PDF pages.
-    Requires PID B's source to be a PDF (native or scanned)."""
     src = fitz.open(doc_b_source_path)
 
     items_by_page: dict[int, list] = {}

@@ -1,21 +1,3 @@
-"""Retrieval over PID A, PID B, and the delta report.
-
-Uses BM25 (rank_bm25) over element-level and delta-item-level chunks rather
-than embeddings. Trade-off, stated plainly: BM25 needs no API key and is
-fully deterministic (good for reproducible eval), but it's a lexical match
-and will miss paraphrase/semantic queries an embedding index would catch.
-Given P&ID content is dominated by exact tags, dimensions, and codes (where
-lexical match is actually *more* reliable than semantic similarity — "26-KA-
-902" should match "26-KA-902", not something merely "related"), this is a
-deliberate choice, not a cost-cutting shortcut — documented as a real
-retrieval-quality trade-off in the README, with embedding-based retrieval
-named as future work.
-
-Every chunk carries a Citation back to its exact source (PID + page + bbox,
-or a delta-report item id) so answers can be grounded precisely, not just
-"somewhere in document A."
-"""
-
 from __future__ import annotations
 
 import re
@@ -31,18 +13,10 @@ logger = get_logger("chat.index")
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:[\"'/.\-][a-z0-9]+)*")
 
-# Deliberately small stopword list, not a generic NLP one: the corpus is
-# short P&ID labels/tags where common English words are themselves rare, so
-# a stray query word like "the" or "is" can get an inflated BM25 IDF and
-# spuriously outrank real tag matches. Filtering them (plus 1-char tokens,
-# which otherwise let "P&ID" -> "p" collide with unrelated single-letter
-# OCR fragments) was found empirically via eval — see README retrieval notes.
 _STOPWORDS = {
     "a", "an", "the", "is", "was", "were", "be", "been", "being", "to", "of", "in", "on", "at",
     "for", "and", "or", "but", "with", "this", "that", "these", "those", "what", "which", "who",
     "how", "do", "does", "did", "it", "its", "as", "by", "from", "into", "about",
-    # domain-generic: "P&ID" tokenizes to "p" + "id" and appears near-universally
-    # in sheet boilerplate, so "id" alone is not a meaningful content token here.
     "id", "pid",
 }
 
@@ -53,7 +27,7 @@ def _tokenize(text: str) -> list[str]:
 
 @dataclass
 class Citation:
-    source: str  # "pid_a" | "pid_b" | "delta_report"
+    source: str 
     pid: str | None
     page_index: int | None
     element_id: str | None
@@ -73,12 +47,6 @@ class Chunk:
     citation: Citation
 
 
-
-# Delta-report chunks are pre-summarized, curated evidence specifically about
-# what changed — for "what changed" style questions they're a strictly
-# better citation than re-discovering the same fact from a raw element
-# label, so they get a modest ranking boost rather than competing on raw
-# lexical score alone.
 _DELTA_SOURCE_BOOST = 1.4
 
 
@@ -89,18 +57,6 @@ class RetrievalIndex:
         self._bm25 = BM25Okapi(self._corpus_tokens) if chunks else None
 
     def search(self, query: str, top_k: int, min_score: float) -> list[tuple[Chunk, float]]:
-        """Returns chunks that (a) share at least one real content token with
-        the query — a hard gate, not just a score threshold, so a query with
-        zero lexical overlap with the corpus (e.g. off-topic/adversarial
-        questions) returns nothing rather than "the least-bad top result" —
-        and (b) score within `min_score` of the best qualifying match.
-
-        Applies a source boost for delta-report chunks (see
-        _DELTA_SOURCE_BOOST) and de-duplicates chunks with identical text
-        from the same source so that, e.g., a tag label repeated verbatim
-        three times on a sheet doesn't crowd distinct, more informative
-        chunks out of the top-k window.
-        """
         if not self._bm25:
             return []
         q_tokens = _tokenize(query)

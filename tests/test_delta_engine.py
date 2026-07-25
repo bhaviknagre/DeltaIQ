@@ -57,7 +57,7 @@ def test_modified_text_at_same_position_detected():
 
 def test_moved_but_unchanged_text_is_flagged_as_modified():
     doc_a = doc_with("a", [el("26-KA-902", 10, 10)])
-    doc_b = doc_with("b", [el("26-KA-902", 10, 60)])  # moved 50pt vertically, same text
+    doc_b = doc_with("b", [el("26-KA-902", 10, 60)])  
 
     result = compute_delta(doc_a, doc_b)
     assert len(result.items) == 1

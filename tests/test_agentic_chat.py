@@ -1,14 +1,3 @@
-"""src/chat/agentic.py: the LangGraph retrieve -> answer -> verify-citations
--> retry pipeline (settings.chat_backend == "agentic"), additive alongside
-chat/answer.py's single-round-trip default.
-
-Covers what's unique to this pipeline over the simple one: a hallucinated
-citation (right format, not among retrieved chunks) gets caught by
-_verify_citations and triggers a widened-retrieval retry, capped at
-agentic_max_retries; a provider failure still degrades one answer instead of
-crashing, matching the boundary tests/test_answer_resilience.py locks in for
-the simple pipeline."""
-
 from src.canonical.model import BoundingBox, CanonicalDocument, DocumentMeta, Element, ElementType, Page
 from src.chat.agentic import answer_question_agentic
 from src.chat.index import build_index
@@ -36,8 +25,6 @@ def _build_index():
 
 
 class HallucinatingProvider(LLMProvider):
-    """Always cites a label that doesn't exist among retrieved chunks —
-    the exact failure mode citation verification exists to catch."""
 
     name = "hallucinating"
 
@@ -75,9 +62,6 @@ def test_hallucinated_citation_triggers_retries_then_gives_up():
     provider = HallucinatingProvider()
     with new_trace(kind="test") as trace:
         result = answer_question_agentic("What changed about 26-KA-902?", index, trace, provider=provider)
-
-    # 1 initial attempt + agentic_max_retries retries, every one hallucinating
-    # the same bad citation, so verification never passes.
     assert provider.calls == settings.agentic_max_retries + 1
     assert result.attempts == settings.agentic_max_retries + 1
     assert result.verified is False
@@ -87,7 +71,6 @@ def test_hallucinated_citation_triggers_retries_then_gives_up():
     verify_spans = [s for s in trace.spans if s.name == "agentic_verify"]
     assert len(retrieve_spans) == settings.agentic_max_retries + 1
     assert len(verify_spans) == settings.agentic_max_retries + 1
-    # every retry after the first widens retrieval
     assert [s.attrs["widened"] for s in retrieve_spans] == [False] + [True] * settings.agentic_max_retries
 
 

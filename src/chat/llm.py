@@ -1,23 +1,3 @@
-"""Provider-agnostic LLM client.
-
-Swappable behind one interface (`LLMProvider.complete`); provider + model
-are config, not hardcoded (src/config.py, env vars). Three providers ship:
-
-  - AnthropicProvider (Claude) — used when ANTHROPIC_API_KEY is set.
-  - OpenAIProvider (GPT) — used when LLM_PROVIDER=openai and OPENAI_API_KEY is set.
-  - MockProvider — deterministic, zero-cost, no-network fallback used when no
-    key is configured, so `make run` / `make eval` stay runnable out of the
-    box for grading. It does NOT fabricate a generative answer: it extracts
-    and lists the retrieved, cited snippets verbatim, clearly labeled as a
-    mock response. This keeps the offline path honest instead of silently
-    pretending to be a real model.
-
-This is the one place in the system where output is non-deterministic
-(real providers) — isolated here deliberately, so the delta engine's
-structural output upstream stays reproducible regardless of which LLM
-answers a chat question.
-"""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -107,11 +87,6 @@ class OpenAIProvider(LLMProvider):
 
 
 class GroqProvider(OpenAIProvider):
-    """Groq's API is OpenAI-compatible, so this is the OpenAIProvider pointed
-    at Groq's endpoint + free-tier model instead of new integration code.
-    Free developer tier, no credit card required (console.groq.com) — the
-    "free way to do this" option, functionally identical in every other
-    respect (same citations/grounding/tracing behavior)."""
 
     name = "groq"
 
@@ -166,7 +141,7 @@ def get_provider() -> LLMProvider:
             return GroqProvider()
         if provider not in ("anthropic", "openai", "groq", "mock"):
             log_event(logger, 30, "unknown_llm_provider_falling_back_to_mock", configured=provider)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         log_event(logger, 40, "llm_provider_init_failed_falling_back_to_mock", provider=provider, error=str(exc))
         return MockProvider()
 

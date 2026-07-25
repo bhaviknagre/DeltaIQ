@@ -1,23 +1,3 @@
-"""Blob store: raw document bytes — PDFs, scanned images, OCR render
-artifacts, annotated markup outputs — segregated from metadata
-(metadata_store.py) and embeddings (vector_store.py). Three implementations:
-
-  - LocalDiskBlobStore (default): the sample/demo PIDs already exist as real
-    files under data/samples/, so this is mostly a pass-through — but it's
-    also where a document uploaded as raw bytes (rather than a path already
-    on disk) would land by default, with no extra infra required.
-  - MinioBlobStore: S3-compatible object storage, self-hosted via Docker
-    with no cloud account needed (MinIO speaks the real S3 API, so this is
-    also a drop-in for real AWS S3 later — same client, different endpoint/
-    credentials). The production choice: proper content-addressed object
-    storage instead of files scattered across local disk, and the natural
-    home for OCR renders and markup PDFs alongside the source documents.
-  - MongoGridFSBlobStore: kept as a secondary option for when raw bytes
-    should live alongside the rest of the Mongo-backed metadata rather than
-    in a separate object store — a smaller-scope deployment that would
-    rather run one database than two storage systems.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -52,8 +32,6 @@ class LocalDiskBlobStore(BlobStore):
         self._root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, key: str) -> Path:
-        # keys can contain path-unsafe characters (pid names); hash into a
-        # flat, collision-resistant filename rather than nesting directories.
         safe = hashlib.sha1(key.encode()).hexdigest()
         return self._root / safe
 
@@ -89,10 +67,6 @@ class MinioBlobStore(BlobStore):
 
     @staticmethod
     def _object_name(key: str) -> str:
-        # Object keys, unlike LocalDiskBlobStore's flat hashed filenames, are
-        # kept human-readable (minus unsafe characters) — MinIO/S3 handle
-        # arbitrary key strings natively and a readable key is genuinely
-        # useful when browsing the bucket via `mc` or the MinIO console.
         return "".join(c if c.isalnum() or c in "-._/" else "_" for c in key)
 
     def put(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:

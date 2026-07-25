@@ -1,25 +1,3 @@
-"""Agentic grounded chat: retrieve -> answer -> verify citations -> retry.
-
-This is an additive alternative to chat/answer.py's single-round-trip
-pipeline, not a replacement for it (see settings.chat_backend). Where
-chat/answer.py trusts the LLM's citations at face value, this pipeline adds
-one real self-correction step on top: after the LLM answers, every citation
-label it used is checked against the citation labels of chunks that were
-actually retrieved. An LLM can hallucinate a citation that *looks* like the
-project's `[pid_a:...]` / `[delta:...]` format without it corresponding to
-anything retrieved for this question — that's exactly the failure mode this
-catches. On a failed verification, retrieval is widened (more chunks, lower
-score floor) and the question is re-answered, up to
-settings.agentic_max_retries times, before giving up and returning the last
-answer produced.
-
-Built as a small LangGraph StateGraph (retrieve -> generate -> verify, with
-verify looping back to retrieve on failure) rather than a hand-rolled while
-loop: the state machine shape is what LangGraph is for, and it's what makes
-this pipeline meaningfully different from chat/answer.py rather than the
-same logic re-typed with an extra dependency.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -43,11 +21,6 @@ logger = get_logger("chat.agentic")
 
 @dataclass
 class AgenticAnswerResult(AnswerResult):
-    """AnswerResult plus the bookkeeping unique to the agentic pipeline. A
-    subclass, not a change to AnswerResult itself: chat/answer.py and its
-    callers stay exactly as they are, this only adds fields for the code
-    paths that know to look for them."""
-
     attempts: int = 1
     verified: bool = True
     verification_notes: list[str] = field(default_factory=list)
@@ -63,10 +36,6 @@ class _State(TypedDict):
 
 
 def _verify_citations(citations_used: list[str], hits: list[tuple[Chunk, float]]) -> list[str]:
-    """Every citation label the LLM used must belong to a chunk that was
-    actually retrieved for this question — catches a fabricated-looking
-    citation (right format, wrong/no source) that chat/answer.py's simple
-    pipeline has no way to notice."""
     valid_labels = {chunk.citation.label() for chunk, _ in hits}
     return [label for label in citations_used if label not in valid_labels]
 
@@ -124,7 +93,7 @@ def answer_question_agentic(
                 LLM_TOKENS_TOTAL.labels(provider=meta["provider"], direction="input").inc(meta["input_tokens"])
                 LLM_TOKENS_TOTAL.labels(provider=meta["provider"], direction="output").inc(meta["output_tokens"])
                 LLM_COST_USD_TOTAL.labels(provider=meta["provider"]).inc(meta["cost_usd"])
-        except Exception as exc:  # noqa: BLE001 - same boundary as chat/answer.py: degrade, don't crash
+        except Exception as exc:  
             log_event(
                 logger, 40, "agentic_llm_call_failed", query=state["query"], attempt=state["attempt"], error=str(exc),
             )
@@ -161,11 +130,9 @@ def answer_question_agentic(
 
     def node_verify(state: _State) -> _State:
         result = state["result"]
-        assert result is not None  # only reached when node_generate produced an answer to check
+        assert result is not None 
 
         if not result.grounded:
-            # A hedge ("no grounded evidence") has no citations to verify —
-            # it's already the correct, honest answer.
             with trace.span("agentic_verify", attempt=state["attempt"], passed=True, reason="hedge"):
                 pass
             result.verified = True

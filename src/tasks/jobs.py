@@ -1,26 +1,3 @@
-"""Background tasks. Each wraps existing synchronous application logic
-unchanged (ingest/pid_store, delta/engine, eval/run_eval) — Celery is a
-dispatch mechanism here, not a place business logic gets duplicated or
-reimplemented.
-
-Real use case for each, not task queues for their own sake:
-  - ingest_and_delta_task: scanned-PDF OCR ingestion measured at ~6s for one
-    page; a web request blocking on that (x2 documents) is a bad experience
-    that only gets worse with more pages/documents. Dispatch it, poll/return
-    a task id, let the client check back.
-  - run_eval_task: a full eval run with a real LLM took ~30s in this
-    project's own testing (7 chat questions + delta on 2 pairs). Same
-    "don't block a web request" reasoning, at a larger scale.
-  - render_markup_task: cheap today (<0.1s) but scales with document/page
-    count; included for the same reason and consistency.
-
-Every task's lifecycle (queued -> running -> success/failure) is mirrored
-into the metadata store's processing_jobs record (MongoDB in production),
-independent of Celery's own Redis result backend — the result backend has a
-TTL and is meant for polling a task you just dispatched, not "what ran last
-Tuesday," which processing_jobs answers instead.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -69,7 +46,7 @@ def ingest_and_delta_task(self, pid_a: str, pid_b: str) -> dict:
         result = {"pid_a": pid_a, "pid_b": pid_b, "counts": delta.counts_by_kind(), "total_changes": len(delta.items)}
         _job_finished(job_id, "success", result=result)
         return result
-    except Exception as exc:  # noqa: BLE001 - record failure on the durable job record, then re-raise for Celery
+    except Exception as exc: 
         _job_finished(job_id, "failure", error=f"{type(exc).__name__}: {exc}")
         raise
 
@@ -91,7 +68,7 @@ def render_markup_task(self, pid_a: str, pid_b: str, out_path: str) -> dict:
         result = {"path": str(out), "bytes": out.stat().st_size}
         _job_finished(job_id, "success", result=result)
         return result
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         _job_finished(job_id, "failure", error=f"{type(exc).__name__}: {exc}")
         raise
 
@@ -111,6 +88,6 @@ def run_eval_task(self) -> dict:
         get_metadata_store().save_eval_run(payload)
         _job_finished(job_id, "success", result={"passed": passed})
         return payload
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         _job_finished(job_id, "failure", error=f"{type(exc).__name__}: {exc}")
         raise

@@ -1,8 +1,3 @@
-# Image: built from the repo's single root Dockerfile (same image serves
-# api/worker/flower — only the container `command` differs, matching this
-# project's docker-compose.yml pattern). Replace the `image:` value with
-# your Artifact Registry path (see terraform/artifact_registry.tf) after
-# `k8s/scripts/build-images.sh` pushes a real tag.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +21,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: delta-chat:latest  # placeholder — see note above
+          image: delta-chat:latest  
           command: ["uvicorn", "src.webapp.app:app", "--host", "0.0.0.0", "--port", "8000"]
           ports:
             - containerPort: 8000

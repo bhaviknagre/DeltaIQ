@@ -1,13 +1,3 @@
-"""Grounded chat: retrieve -> prompt -> LLM -> parse citations.
-
-Every answer must cite specific sources using the exact bracketed citation
-labels handed to it in context (e.g. `[pid_a:26-9026-REV-A@p0]` or
-`[delta:mod-abc123-def456]`). If retrieval finds nothing above the
-confidence floor, the LLM is never even called — the system hedges
-directly, which is the cheapest and most reliable way to avoid
-hallucinating an answer with no supporting evidence.
-"""
-
 from __future__ import annotations
 
 import re
@@ -78,10 +68,6 @@ def answer_question(
         span.attrs["top_score"] = hits[0][1] if hits else 0.0
 
     if not hits:
-        # INFO, not WARNING: refusing to answer an ungrounded question is the
-        # system working correctly (see chat/answer.py module docstring —
-        # this is the cheapest, most reliable way to avoid hallucinating),
-        # not an anomaly worth flagging.
         log_event(logger, 20, "no_grounding_evidence", query=query)
         with trace.span("answer", grounded=False):
             pass
@@ -115,11 +101,7 @@ def answer_question(
             LLM_TOKENS_TOTAL.labels(provider=provider.name, direction="input").inc(resp.input_tokens)
             LLM_TOKENS_TOTAL.labels(provider=provider.name, direction="output").inc(resp.output_tokens)
             LLM_COST_USD_TOTAL.labels(provider=provider.name).inc(resp.cost_usd)
-    except Exception as exc:  # noqa: BLE001 - provider call is the one network-dependent, arbitrarily-failing step
-        # The span above already recorded status="error" + the exception on the
-        # trace file before re-raising (see observability/tracing.py) — this is
-        # the "don't let one bad LLM call crash the whole request/eval run"
-        # boundary, not where the error is first captured.
+    except Exception as exc:
         log_event(logger, 40, "llm_call_failed", query=query, provider=provider.name, error=str(exc))
         with trace.span("answer", grounded=False, llm_error=True):
             pass

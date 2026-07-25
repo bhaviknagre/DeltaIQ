@@ -1,14 +1,3 @@
-"""Regression test for src/config.py::redact_uri. Found live: a real
-MongoDB Atlas connection string (with password) was being logged at every
-connection and rendered directly on the /infra status page — never
-committed to git, but a real leak into log files/terminal output/the
-browser regardless. Every call site that logs or displays
-settings.mongodb_uri / settings.redis_url must go through this first.
-
-Uses synthetic example credentials below, not the real ones from that
-incident — a regression test for a secret-redaction function is exactly
-the wrong place to hardcode a real secret as fixture data."""
-
 from src.config import redact_uri
 
 

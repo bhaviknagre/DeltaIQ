@@ -1,8 +1,3 @@
-"""A failed LLM provider call (network error, rate limit, bad key, quota
-exhausted — anything the provider might raise) must degrade one answer, not
-crash the whole request or a `make eval` run partway through. Regression
-test for that boundary in chat/answer.py."""
-
 from src.canonical.model import BoundingBox, CanonicalDocument, DocumentMeta, Element, ElementType, Page
 from src.chat.answer import answer_question
 from src.chat.index import build_index

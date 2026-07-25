@@ -1,30 +1,3 @@
-"""Content alignment between two canonical documents.
-
-This is the hard part of "delta," not the diffing. Elements have no stable
-cross-revision ID (a re-exported PDF/DXF assigns nothing like a database
-primary key to a text run), so alignment has to infer correspondence from
-text similarity and spatial proximity, restricted to the same page/sheet.
-
-Strategy, in order of confidence:
-  1. Exact match: identical text at (near-)identical position on the same
-     page -> aligned as "unchanged", full confidence, no further scoring.
-  2. Best-score greedy match on remaining elements: for each page, score
-     every remaining (a, b) candidate pair by a blend of text similarity
-     (rapidfuzz) and spatial proximity (bbox-center distance), then greedily
-     take the highest-scoring pairs first, one-to-one, until nothing left
-     clears FUZZY_MATCH_THRESHOLD *or* is close enough spatially even with
-     weak text similarity (covers "text fully replaced at the same
-     location," e.g. a tag renumbered in place).
-  3. Anything left unmatched in A is a removal candidate; unmatched in B is
-     an addition candidate.
-
-Greedy (not optimal bipartite/Hungarian) matching is a deliberate trade-off:
-P&ID sheets have hundreds of small text elements, so an O(n^2 log n) greedy
-pass over precomputed pairwise scores is fast and, in practice, converges to
-the same alignment the Hungarian algorithm would for well-separated content
-— documented here rather than silently assumed correct.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -34,17 +7,17 @@ from rapidfuzz import fuzz
 from src.canonical.model import CanonicalDocument, Element
 from src.config import settings
 
-EXACT_POSITION_EPS = 1.5  # points; bbox-center distance below this + identical text => "unchanged"
-MOVED_POSITION_EPS = 3.0  # points; matched pair with identical text but center beyond this => "moved"
+EXACT_POSITION_EPS = 1.5  
+MOVED_POSITION_EPS = 3.0  
 
 
 @dataclass
 class MatchedPair:
     a: Element
     b: Element
-    text_sim: float  # 0-100
-    spatial_dist: float  # points, +inf if different pages
-    method: str  # "exact" | "fuzzy_text" | "spatial_only"
+    text_sim: float 
+    spatial_dist: float  
+    method: str 
 
     @property
     def combined_score(self) -> float:
@@ -55,8 +28,8 @@ class MatchedPair:
 @dataclass
 class AlignmentResult:
     matched: list[MatchedPair] = field(default_factory=list)
-    removed: list[Element] = field(default_factory=list)  # unmatched in A
-    added: list[Element] = field(default_factory=list)  # unmatched in B
+    removed: list[Element] = field(default_factory=list)  
+    added: list[Element] = field(default_factory=list)  
 
 
 def _center_dist(e1: Element, e2: Element) -> float:
@@ -76,7 +49,6 @@ def align(doc_a: CanonicalDocument, doc_b: CanonicalDocument) -> AlignmentResult
         unmatched_a: dict[str, Element] = {e.id: e for e in a_elems}
         unmatched_b: dict[str, Element] = {e.id: e for e in b_elems}
 
-        # Pass 1: exact match (same text, same type, near-identical position)
         for a_id, a in list(unmatched_a.items()):
             for b_id, b in list(unmatched_b.items()):
                 if a.text == b.text and a.element_type == b.element_type and _center_dist(a, b) <= EXACT_POSITION_EPS:
@@ -85,13 +57,12 @@ def align(doc_a: CanonicalDocument, doc_b: CanonicalDocument) -> AlignmentResult
                     del unmatched_b[b_id]
                     break
 
-        # Pass 2: greedy best-score match on what's left
         candidates: list[MatchedPair] = []
         for a in unmatched_a.values():
             for b in unmatched_b.values():
                 dist = _center_dist(a, b)
                 if dist > settings.spatial_match_max_dist * 3:
-                    continue  # too far apart to plausibly be the same element
+                    continue  
                 sim = fuzz.ratio(a.text, b.text)
                 method = "fuzzy_text" if sim >= settings.fuzzy_match_threshold else "spatial_only"
                 candidates.append(MatchedPair(a=a, b=b, text_sim=sim, spatial_dist=dist, method=method))

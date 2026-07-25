@@ -1,20 +1,3 @@
-"""Text embedding providers for the vector store (src/storage/vector_store.py).
-
-Same pattern as chat/llm.py's LLMProvider: one interface, a real provider
-that needs an API key, and a deterministic offline fallback that needs
-nothing — so the vector store (and hybrid retrieval built on it) works with
-zero external dependencies by default, and upgrades to real semantic
-embeddings when a key is configured.
-
-HashingEmbedder is a real trade-off, not a toy: it uses the hashing trick
-(feature-hash tokens into a fixed-size vector, L2-normalize) — deterministic,
-free, and captures lexical overlap reasonably, but it is NOT a semantic
-embedding. Two paraphrases with no shared vocabulary will not be found
-similar by it, same limitation as BM25 (see chat/index.py). It exists so
-`RETRIEVAL_BACKEND=vector` or `hybrid` is honestly usable without an API key,
-not to pretend to be a real embedding model.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -40,10 +23,6 @@ class Embedder(ABC):
 
 
 class HashingEmbedder(Embedder):
-    """Deterministic, offline, no-key-required. Feature-hashing (the
-    "hashing trick"): each token hashes into one of `dim` buckets with a
-    sign, vectors are L2-normalized. Same idea scikit-learn's
-    HashingVectorizer uses — no training, no vocabulary, no API."""
 
     name = "hashing"
 
@@ -67,12 +46,8 @@ class HashingEmbedder(Embedder):
 
 
 class OpenAIEmbedder(Embedder):
-    """Real semantic embeddings via OpenAI's embeddings API. Needs
-    OPENAI_API_KEY regardless of which LLM_PROVIDER is configured for chat —
-    Anthropic and Groq don't currently offer an embeddings endpoint."""
-
     name = "openai"
-    dim = 1536  # text-embedding-3-small
+    dim = 1536 
 
     def __init__(self):
         from openai import OpenAI

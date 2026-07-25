@@ -1,18 +1,8 @@
-"""Scanned/raster PDF adapter: rasterizes each page and runs OCR (Tesseract)
-to recover text + word-level bounding boxes, since there is no reliable text
-layer to read directly.
-
-OCR word boxes come back in pixel space of the rendered image; they're
-rescaled to PDF point space (72/dpi) so bboxes are directly comparable to
-the native-PDF adapter's output without the delta engine needing to know
-which adapter produced which document.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import fitz  
 import pytesseract
 from PIL import Image
 
@@ -24,7 +14,7 @@ from src.observability.logging import get_logger, log_event
 
 logger = get_logger("ingest.pdf_scanned")
 
-MIN_CHARS_PER_PAGE_FOR_NATIVE = 20  # kept in sync with pdf_native's threshold
+MIN_CHARS_PER_PAGE_FOR_NATIVE = 20 
 
 
 class ScannedPdfAdapter(FormatAdapter):
@@ -41,7 +31,6 @@ class ScannedPdfAdapter(FormatAdapter):
         if doc.page_count == 0:
             return False
         avg_chars = sum(len(p.get_text().strip()) for p in doc) / doc.page_count
-        # A scanned PDF is one with (near-)no extractable text layer but real page content (images).
         has_images = any(len(p.get_images()) > 0 for p in doc)
         return avg_chars < MIN_CHARS_PER_PAGE_FOR_NATIVE and (has_images or doc.page_count > 0)
 

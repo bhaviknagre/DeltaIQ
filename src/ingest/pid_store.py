@@ -1,18 +1,3 @@
-"""Resolves a PID (persistent identifier for one document revision) to bytes
-+ metadata, then dispatches to the right FormatAdapter and returns a
-CanonicalDocument. This is the single place the rest of the system calls
-into ingestion through — it never sees adapters, raw files, or which
-metadata backend is configured directly.
-
-The registry/manifest itself is delegated to a MetadataStore
-(src/storage/metadata_store.py) — a flat JSON file by default (identical
-behavior to before this module existed), or real MongoDB when
-METADATA_STORE=mongo. Parsed CanonicalDocuments are cached through the same
-store (JSON: sibling cache files; Mongo: a dedicated collection) so
-`load()` doesn't re-run OCR/text-extraction on every call within a process
-that would otherwise hit the metadata store repeatedly for the same PID.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,9 +20,6 @@ __all__ = ["PidNotFoundError", "register_pid", "resolve_pid", "load"]
 
 
 def _load_manifest() -> dict:
-    """Kept for backward compatibility (src/webapp/app.py and tests read
-    this directly to list registered PIDs) — delegates to whichever
-    MetadataStore is configured rather than reading a JSON file itself."""
     return get_metadata_store().list_pids()
 
 
@@ -50,16 +32,6 @@ def resolve_pid(pid: str) -> dict:
 
 
 def load(pid: str, use_cache: bool = False) -> CanonicalDocument:
-    """Resolve a PID to bytes+metadata, detect its format, and normalize it
-    into the canonical representation.
-
-    `use_cache` is opt-in, not default-on, deliberately: the cache is keyed
-    by PID name only, with no file-mtime/hash invalidation. Regenerating a
-    sample file in place (e.g. `make samples`) while reusing the same PID
-    name — which happens routinely in this project's own dev loop — would
-    otherwise silently serve stale parsed content with no error. Safe to
-    pass True for a genuinely immutable/short-lived scope (e.g. a single
-    background task re-reading the same PID multiple times)."""
     store = get_metadata_store()
     entry = store.resolve_pid(pid)
 

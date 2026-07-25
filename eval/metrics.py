@@ -1,8 +1,3 @@
-"""Scoring functions for the eval harness: delta precision/recall/F1 against
-hand-labeled ground truth, and chat correctness/groundedness/citation
-accuracy against a Q&A ground-truth set.
-"""
-
 from __future__ import annotations
 
 import re
@@ -74,17 +69,7 @@ def score_delta(gt_edits: list[dict], predicted: list[DeltaItem]) -> DeltaScore:
 
 
 def score_ocr_accuracy(native_doc: CanonicalDocument, ocr_doc: CanonicalDocument) -> float:
-    """Word-level OCR accuracy: of all words present in the native (ground-
-    truth) text layer, what fraction does OCR also recover — comparing the
-    OCR adapter's output against the native adapter's output run on the
-    *same underlying page content* (native and scanned samples are the same
-    document; scanned is just a 300dpi rasterization of it, see
-    data/samples/build_synthetic_pairs.py). A multiset word-overlap ratio,
-    not true Word Error Rate (doesn't penalize OCR insertions/hallucinated
-    words, only misses) — a deliberately simple, honestly-labeled proxy
-    rather than a heavier alignment-based WER implementation.
-    """
-
+   
     def words(doc: CanonicalDocument) -> Counter:
         text = " ".join(e.text for e in doc.all_elements())
         return Counter(_WORD_RE.findall(text.lower()))

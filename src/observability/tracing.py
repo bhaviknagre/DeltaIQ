@@ -1,21 +1,3 @@
-"""Homegrown request tracer.
-
-Why homegrown instead of OpenTelemetry/Langfuse/Phoenix: this project has no
-always-on collector to send spans to, and the grading environment shouldn't
-need one running to see traces. A trace here is a single self-contained JSON
-file per request under traces/<request_id>.json — inspectable with `cat`,
-diffable across runs, and requires zero infrastructure. The shape (trace_id,
-named spans with start/end/duration, nested via parent span name, arbitrary
-attributes) mirrors OTel's span model closely enough that swapping in a real
-OTel SDK later is a matter of changing Tracer's internals, not call sites.
-
-Every stage of a request (ingest -> delta -> retrieve -> llm -> answer) opens
-a span via `with tracer.span("stage_name", **attrs):`. LLM spans additionally
-record token counts and estimated cost (see chat/llm.py). Errors raised
-inside a span are caught, recorded on the span (status="error", error=...),
-re-raised, and still flushed to disk — failures are traced, not swallowed.
-"""
-
 from __future__ import annotations
 
 import json
@@ -77,7 +59,7 @@ class Trace:
         logger.info(f"span_start:{name}", extra={"extra_fields": {"span": name, **attrs}})
         try:
             yield s
-        except Exception as exc:  # noqa: BLE001 - deliberately broad: trace then re-raise
+        except Exception as exc: 
             s.status = "error"
             s.error = f"{type(exc).__name__}: {exc}"
             logger.error(

@@ -1,9 +1,3 @@
-"""Renders a DeltaResult as a human-readable Markdown report and a
-machine-parseable JSON report. Both are written to disk; the Markdown
-report (chunked by section) is also what the chat layer's retrieval index
-treats as a first-class retrievable source alongside PID A and PID B.
-"""
-
 from __future__ import annotations
 
 import json
@@ -53,9 +47,6 @@ def to_markdown(result: DeltaResult, label_a: str = "PID A", label_b: str = "PID
         cat_str = ", ".join(f"{k}: {v}" for k, v in sorted(by_cat.items()))
         lines.append(f"- **By category**: {cat_str}")
     lines.append("")
-
-    # Added/Removed/Modified summary — grouped by change kind first, the
-    # shape most reviewers scan for ("what got added/removed/modified").
     for kind, heading in ((ChangeKind.ADDED, "Added"), (ChangeKind.REMOVED, "Removed"), (ChangeKind.MODIFIED, "Modified")):
         items = [it for it in result.items if it.change_kind == kind]
         if not items:
@@ -66,7 +57,6 @@ def to_markdown(result: DeltaResult, label_a: str = "PID A", label_b: str = "PID
             lines.append(_item_line(item))
         lines.append("")
 
-    # Per-sheet detail — the "where on the drawing" view.
     by_page: dict[int, list[DeltaItem]] = {}
     for item in result.items:
         by_page.setdefault(item.page_index, []).append(item)

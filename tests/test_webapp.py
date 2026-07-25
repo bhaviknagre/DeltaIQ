@@ -1,9 +1,3 @@
-"""Smoke tests for the web UI routes — not a substitute for the CLI/eval
-tests (which cover the actual logic), just confirming the FastAPI layer
-wires up correctly: templates render, the chat API returns a grounded
-answer, and the criticality signal reaches the results page. Skips if the
-sample pair hasn't been generated / seeded yet."""
-
 from pathlib import Path
 
 import pytest

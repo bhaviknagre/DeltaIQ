@@ -1,9 +1,3 @@
-"""End-to-end integration test against the real synthetic sample pair
-(data/samples/pair_native/), asserting the delta engine recovers exactly the
-6 known ground-truth edits with zero false positives on the deterministic
-native-PDF path. Skips if samples haven't been generated yet
-(`make samples`, or `python -m data.samples.build_synthetic_pairs`)."""
-
 import json
 from pathlib import Path
 

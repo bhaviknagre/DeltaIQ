@@ -1,10 +1,3 @@
-"""Delta engine: turns an AlignmentResult into a structured, typed, located,
-confidence-scored list of DeltaItems. Purely deterministic — no LLM calls —
-so the structural output is reproducible run-to-run (the assignment
-explicitly asks for this; LLM non-determinism is isolated to the chat layer,
-see chat/answer.py).
-"""
-
 from __future__ import annotations
 
 from enum import Enum
@@ -89,7 +82,7 @@ def _pair_to_delta_item(pair: MatchedPair) -> DeltaItem | None:
     text_changed = a.text != b.text
     moved = pair.spatial_dist > MOVED_POSITION_EPS
     if not text_changed and not moved:
-        return None  # truly unchanged, not part of the delta
+        return None  
 
     confidence = round((pair.combined_score / 100.0) * min(a.confidence, b.confidence), 3)
     return DeltaItem(

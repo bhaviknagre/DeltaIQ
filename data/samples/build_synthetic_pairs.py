@@ -1,30 +1,3 @@
-"""Builds the sample PID revision pairs used for demos and eval ground truth.
-
-Provenance: the two source PDFs (export_gas_compressor.pdf,
-lift_gas_compressor.pdf, under data/samples/raw/) are real, born-digital
-P&ID export sheets supplied for this assignment. They are two *different*
-drawings, not two revisions of one drawing, so they can't directly serve as
-a PID-A/PID-B pair (the assignment needs revisions of the *same* underlying
-document with a knowable delta).
-
-This script synthesizes two revision pairs from that real material, exactly
-as the assignment's own FAQ suggests ("edit a PDF and re-export"):
-
-1. pair_native/ — export_gas_compressor.pdf duplicated verbatim as Rev A,
-   then edited in place with PyMuPDF (redact + re-insert text at the same
-   font/size/position) to produce Rev B. Every edit is listed in
-   GROUND_TRUTH below with its exact type/location, giving an exact-known
-   delta for eval instead of a guessed one.
-
-2. pair_scanned/ — Rev A and Rev B of the native pair, rasterized to images
-   at 300dpi and re-saved as image-only PDFs (no text layer), simulating a
-   scan/photograph of the same revision pair. Exercises the OCR ingestion
-   path end-to-end on the *same* known delta, so delta P/R/F1 can be
-   compared native-vs-scanned on identical ground truth.
-
-Run: python -m data.samples.build_synthetic_pairs
-"""
-
 from __future__ import annotations
 
 import json
@@ -37,8 +10,6 @@ RAW = HERE / "raw"
 NATIVE_DIR = HERE / "pair_native"
 SCANNED_DIR = HERE / "pair_scanned"
 
-# Each edit: (kind, old_text_or_None, new_text_or_None, bbox, font, size)
-# kind in {"modify", "remove", "add"} — this IS the ground truth delta.
 EDITS = [
     {
         "id": "gt-1",
@@ -117,12 +88,6 @@ def build_native_pair() -> None:
     rev_b_path = NATIVE_DIR / "rev_b.pdf"
 
     doc_a = fitz.open(src)
-    # no_new_id: PyMuPDF stamps a fresh, effectively-random /ID into the PDF
-    # trailer on every save by default (per the PDF spec's own recommendation),
-    # so re-running this script produced a byte-different file each time even
-    # with identical edits — permanently drifting `dvc.lock` (data/samples/*
-    # is a tracked DVC output) on every regeneration. Deterministic output is
-    # what actually matters here: no downstream code depends on the file ID.
     doc_a.save(rev_a_path, no_new_id=True)
     doc_a.close()
 

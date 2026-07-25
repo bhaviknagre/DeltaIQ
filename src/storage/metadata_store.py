@@ -1,31 +1,3 @@
-"""Metadata store: the source of truth for PID registry, cached canonical
-documents, delta results, chat sessions, processing jobs, and eval run
-history — segregated from the vector store (embeddings, Chroma/Pinecone)
-and the blob store (raw file bytes, local disk/MinIO). One interface, two
-implementations:
-
-  - JsonFileMetadataStore: the original pid_store.json behavior, zero infra.
-    Default, so `make run`/`make eval` keep working with nothing extra
-    installed or running.
-  - MongoMetadataStore: real MongoDB, six collections (pids,
-    canonical_documents, delta_results, chat_sessions, processing_jobs,
-    eval_runs). The production option — flexible schema fits documents/
-    delta-items naturally, and it's the obvious place to query "every delta
-    run for this PID pair," "every eval run in the last week," or "history
-    of this chat session" once there's more than a handful of PIDs.
-
-Chat sessions are also cache-fronted by Redis (src/storage/session_store.py)
-for hot-path reads — Mongo is the durable record, Redis is what a live chat
-UI actually reads on every turn. Processing jobs mirror Celery task
-lifecycle (src/tasks/jobs.py) into a durable record independent of the
-Celery result backend's TTL, so "what ran, when, with what result" survives
-longer than Celery's own bookkeeping is meant to.
-
-Selected via METADATA_STORE=json|mongo (src/config.py). ingest/pid_store.py
-delegates to whichever is configured — nothing else in the codebase talks
-to a specific backend directly.
-"""
-
 from __future__ import annotations
 
 import json
@@ -93,11 +65,6 @@ class PidNotFoundError(KeyError):
 
 
 class JsonFileMetadataStore(MetadataStore):
-    """Original behavior: one JSON file for the PID manifest. Canonical
-    documents/delta results/eval runs are cached to sibling JSON files under
-    the same directory rather than held in memory, so this remains a real
-    (if simple) persistent store, not just a dict that vanishes on restart."""
-
     name = "json"
 
     def __init__(self):
@@ -186,12 +153,6 @@ class JsonFileMetadataStore(MetadataStore):
 
 
 class MongoMetadataStore(MetadataStore):
-    """Real MongoDB-backed store — the source of truth. Six collections:
-    pids, canonical_documents, delta_results, chat_sessions, processing_jobs,
-    eval_runs — each a natural fit for Mongo's document model (nested
-    Element/DeltaItem/chat-turn structures don't need flattening the way a
-    relational schema would require)."""
-
     name = "mongo"
 
     def __init__(self, client=None):
@@ -255,14 +216,6 @@ class MongoMetadataStore(MetadataStore):
         self._evals.insert_one({**payload, "saved_at": datetime.now(timezone.utc)})
 
     def list_eval_runs(self, limit: int = 10) -> list[dict]:
-        # Sort by _id (MongoDB ObjectIds are monotonically increasing per
-        # insert), not the "saved_at" timestamp field: two runs saved within
-        # the same microsecond (easily possible — eval runs are saved right
-        # after each other in a script) would tie on "saved_at" and MongoDB
-        # doesn't guarantee stable ordering for ties, silently scrambling
-        # run history. _id has no such collision even at identical wall-clock
-        # time. Excluding _id from the returned projection is independent of
-        # sorting by it.
         docs = list(self._evals.find({}, {"_id": 0}).sort("_id", -1).limit(limit))
         return list(reversed(docs))
 
@@ -270,7 +223,6 @@ class MongoMetadataStore(MetadataStore):
         self._chat_sessions.insert_one({"session_id": session_id, **turn, "saved_at": datetime.now(timezone.utc)})
 
     def get_chat_session(self, session_id: str) -> list[dict]:
-        # Same _id-not-timestamp reasoning as list_eval_runs above.
         docs = list(self._chat_sessions.find({"session_id": session_id}, {"_id": 0}).sort("_id", 1))
         return docs
 
@@ -315,7 +267,5 @@ def get_metadata_store() -> MetadataStore:
 
 
 def reset_metadata_store_cache() -> None:
-    """Test-only: clears the module-level singleton so a new store (or a
-    fresh mongomock client) can be injected between test runs."""
     global _instance
     _instance = None
