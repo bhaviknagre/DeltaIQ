@@ -70,6 +70,40 @@ def main() -> None:
         assert not result.grounded
         assert "provider call failed" in result.answer.lower()
 
+    # --- Agentic pipeline (settings.chat_backend == "agentic") ---
+    # Same provider, same index; asserts the LangGraph retrieve -> answer ->
+    # verify-citations -> retry pipeline (src/chat/agentic.py) is additive,
+    # not a regression: a real provider should verify cleanly on the first
+    # attempt, and a provider that hallucinates a citation not among the
+    # retrieved chunks should be caught and retried rather than trusted.
+    from src.chat.agentic import answer_question_agentic
+
+    with suite.check("agentic: grounded answer verifies on first attempt"):
+        with new_trace(kind="check_chat_agentic") as trace:
+            result = answer_question_agentic("What changed with tag 26-KA-902?", index, trace, provider=provider)
+        assert result.grounded, f"expected grounded=True, answer was: {result.answer!r}"
+        assert result.verified, f"expected citations to verify, notes: {result.verification_notes}"
+        assert result.attempts == 1, f"expected no retries against a well-behaved provider, got {result.attempts}"
+
+    with suite.check("agentic: hallucinated citation is caught and retried, not trusted"):
+        from src.chat.llm import LLMProvider, LLMResponse
+
+        class HallucinatingProvider(LLMProvider):
+            name = "hallucinating"
+
+            def complete(self, system, user):
+                return LLMResponse(
+                    text="The size changed [pid_a:nonexistent@p99].",
+                    model="fake", input_tokens=1, output_tokens=1, cost_usd=0.0,
+                )
+
+        with new_trace(kind="check_chat_agentic") as trace:
+            result = answer_question_agentic(
+                "What changed with tag 26-KA-902?", index, trace, provider=HallucinatingProvider()
+            )
+        assert not result.verified, "expected a fabricated citation to fail verification"
+        assert result.attempts > 1, "expected at least one retry after a failed verification"
+
     suite.exit()
 
 

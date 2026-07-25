@@ -66,6 +66,62 @@ One `LLMProvider` interface, four implementations:
 Switching providers is a `.env` change (`LLM_PROVIDER` + the matching key),
 never a code change.
 
+## Agentic mode (`src/chat/agentic.py`)
+
+The grounding/refusal pipeline above is one retrieve → LLM → parse-citations
+round trip: it trusts whatever citations the LLM attaches to its answer.
+`chat/agentic.py` is an additive alternative — a [LangGraph](https://langchain-ai.github.io/langgraph/)
+`StateGraph` that adds one real self-correction step on top:
+
+```
+retrieve -> generate -> verify_citations -+-> END (verified, or a clean hedge)
+               ^                          |
+               +---- widen + retry <------+  (citation not among retrieved evidence)
+```
+
+**What verification checks**: every bracketed citation label the LLM used
+(`[pid_a:...]`, `[delta:...]`) must belong to a chunk that was actually
+retrieved for this question. An LLM can produce a citation that's
+well-formed but not grounded in anything retrieved — right shape, wrong (or
+no) source — which the simple pipeline above has no way to notice, since it
+only checks that *a* citation-shaped string is present in the text. On a
+failed verification, retrieval is widened (3x `top_k`, half `min_score`) and
+the question is re-answered, up to `AGENTIC_MAX_RETRIES` (default 2) times,
+before returning the last answer produced with `verified=False` rather than
+looping forever.
+
+**Not a second LLM integration**: `chat/llm.py` still owns every provider
+integration, the mock/no-key fallback, and cost telemetry, completely
+unchanged — `chat/langchain_llm.py` adds exactly one seam,
+`ProviderBackedChatModel`, a LangChain `BaseChatModel` whose `_generate`
+delegates straight to `LLMProvider.complete`. LangGraph's nodes get a
+message-based interface to call; the provider logic itself is never
+duplicated.
+
+Opt in per call:
+
+```bash
+python -m src.cli chat 26-9026-REV-A 26-9026-REV-B --agentic -q "What changed with tag 26-KA-902?"
+```
+
+```json
+POST /api/chat
+{"pid_a": "26-9026-REV-A", "pid_b": "26-9026-REV-B", "question": "...", "agentic": true}
+```
+
+or globally via `CHAT_BACKEND=agentic` in `.env` (both call sites above
+default to this setting when the flag/field is omitted). In this mode,
+`AnswerResult` becomes `AgenticAnswerResult` — a strict superset adding
+`verified: bool`, `attempts: int`, and `verification_notes: list[str]`;
+`chat/answer.py` and its existing callers are untouched.
+
+Covered by `tests/test_agentic_chat.py` (happy path, a hallucinated-citation
+provider that gets retried then gives up, provider-failure degradation, and
+the no-evidence hedge) and by `scripts/checks/check_chat.py` against
+whichever real provider is currently configured. Not yet wired into
+`eval/run_eval.py` — the scorecard still measures the simple pipeline only
+(see the project README's "What's next with more time").
+
 ## Example
 
 ```

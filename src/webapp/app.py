@@ -20,6 +20,7 @@ from prometheus_client import make_asgi_app
 
 from src._version import __version__
 from src.canonical.model import CanonicalDocument
+from src.chat.agentic import answer_question_agentic
 from src.chat.answer import answer_question
 from src.chat.vector_index import build_retriever
 from src.config import redact_uri, settings
@@ -158,10 +159,15 @@ def api_chat(payload: ChatRequest) -> ChatResponse:
 
     session_id = payload.session_id or str(uuid.uuid4())
     index = _get_index(payload.pid_a, payload.pid_b)
+    use_agentic = settings.chat_backend == "agentic" if payload.agentic is None else payload.agentic
     with new_trace(
-        kind="ui_chat", pid_a=payload.pid_a, pid_b=payload.pid_b, question=payload.question, session_id=session_id
+        kind="ui_chat", pid_a=payload.pid_a, pid_b=payload.pid_b, question=payload.question,
+        session_id=session_id, agentic=use_agentic,
     ) as trace:
-        result = answer_question(payload.question, index, trace)
+        if use_agentic:
+            result = answer_question_agentic(payload.question, index, trace)
+        else:
+            result = answer_question(payload.question, index, trace)
 
     from src.storage.session_store import get_session_store
 
@@ -180,6 +186,8 @@ def api_chat(payload: ChatRequest) -> ChatResponse:
         output_tokens=result.output_tokens,
         request_id=trace.request_id,
         session_id=session_id,
+        verified=getattr(result, "verified", None),
+        attempts=getattr(result, "attempts", None),
     )
 
 

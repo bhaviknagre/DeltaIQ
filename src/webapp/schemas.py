@@ -17,6 +17,11 @@ class ChatRequest(BaseModel):
     pid_b: str = Field(..., min_length=1, description="Revised revision PID")
     question: str = Field(..., min_length=1, description="The question to answer, grounded in pid_a/pid_b/the delta")
     session_id: str | None = Field(None, description="Chat session id for multi-turn history; generated if omitted")
+    agentic: bool | None = Field(
+        None,
+        description="Use the LangGraph retrieve->answer->verify->retry pipeline instead of the single-round-trip "
+        "default. Omit to use settings.chat_backend.",
+    )
 
 
 class ChatResponse(BaseModel):
@@ -29,6 +34,8 @@ class ChatResponse(BaseModel):
     output_tokens: int
     request_id: str
     session_id: str
+    verified: bool | None = None
+    attempts: int | None = None
 
 
 class VersionResponse(BaseModel):

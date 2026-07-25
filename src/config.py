@@ -58,6 +58,16 @@ class Settings:
     retrieval_backend: str = os.environ.get("RETRIEVAL_BACKEND", "bm25")
     hybrid_bm25_weight: float = _f("HYBRID_BM25_WEIGHT", 0.5)  # remainder goes to vector score
 
+    # --- Chat pipeline ---
+    # simple (default): chat/answer.py's single retrieve -> LLM -> parse-citations
+    # call, one round trip. agentic: src/chat/agentic.py's LangGraph state
+    # machine — retrieve -> answer -> verify citations against retrieved
+    # evidence -> widen-and-retry on a failed verification, capped at
+    # agentic_max_retries. Additive, not a replacement: existing callers that
+    # don't opt in keep getting the simple pipeline unchanged.
+    chat_backend: str = os.environ.get("CHAT_BACKEND", "simple")  # simple | agentic
+    agentic_max_retries: int = _i("AGENTIC_MAX_RETRIES", 2)
+
     # --- Embeddings (for the vector store) ---
     embedder: str = os.environ.get("EMBEDDER", "hashing")  # hashing (offline, default) | openai
     hashing_embedder_dim: int = _i("HASHING_EMBEDDER_DIM", 256)

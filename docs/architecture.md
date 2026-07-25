@@ -48,6 +48,12 @@ Every stage above is wrapped in a trace span (see [Observability](observability.
 so a single request produces one inspectable `traces/<request_id>.json` file
 covering ingest → delta → retrieve → LLM call → answer.
 
+This is the default (`CHAT_BACKEND=simple`) chat flow — one retrieve → LLM →
+parse-citations round trip. An additive, opt-in alternative
+(`CHAT_BACKEND=agentic`) inserts a LangGraph state machine between `Idx` and
+the final answer that verifies the LLM's citations against what was actually
+retrieved and retries on failure; see [Grounded chat: Agentic mode](chat.md#agentic-mode-srcchatagenticpy).
+
 ## Why this shape
 
 - **Determinism where it matters.** Ingestion, alignment, classification, and

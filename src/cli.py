@@ -15,8 +15,10 @@ from pathlib import Path
 import click
 
 from src._version import __version__
+from src.chat.agentic import answer_question_agentic
 from src.chat.answer import answer_question
 from src.chat.vector_index import build_retriever
+from src.config import settings
 from src.delta.engine import compute_delta
 from src.delta.report import write_report
 from src.ingest.pid_store import load, register_pid, resolve_pid
@@ -69,20 +71,38 @@ def run(pid_a: str, pid_b: str, out_dir: str):
 @click.argument("pid_a")
 @click.argument("pid_b")
 @click.option("-q", "--question", default=None, help="Ask a single question and exit; omit for interactive mode")
-def chat(pid_a: str, pid_b: str, question: str | None):
+@click.option(
+    "--agentic", is_flag=True, default=None,
+    help="Use the LangGraph retrieve->answer->verify-citations->retry pipeline (src/chat/agentic.py) "
+    "instead of the single-round-trip default. Defaults to settings.chat_backend.",
+)
+def chat(pid_a: str, pid_b: str, question: str | None, agentic: bool | None):
     """Grounded chat over PID A, PID B, and their delta report."""
     click.echo("Ingesting and computing delta...")
     doc_a = load(pid_a)
     doc_b = load(pid_b)
     delta = compute_delta(doc_a, doc_b)
     index = build_retriever(doc_a, doc_b, delta)
-    click.echo(f"Ready. {len(delta.items)} changes indexed. Ask questions about {pid_a}, {pid_b}, or the delta.\n")
+    use_agentic = settings.chat_backend == "agentic" if agentic is None else agentic
+    click.echo(
+        f"Ready. {len(delta.items)} changes indexed. Ask questions about {pid_a}, {pid_b}, or the delta."
+        f" [{'agentic' if use_agentic else 'simple'} pipeline]\n"
+    )
 
     def _ask(q: str):
-        with new_trace(kind="chat", pid_a=pid_a, pid_b=pid_b, question=q) as trace:
-            result = answer_question(q, index, trace)
+        with new_trace(kind="chat", pid_a=pid_a, pid_b=pid_b, question=q, agentic=use_agentic) as trace:
+            if use_agentic:
+                result = answer_question_agentic(q, index, trace)
+            else:
+                result = answer_question(q, index, trace)
         click.echo(f"\n{result.answer}\n")
-        click.echo(f"(grounded={result.grounded}, citations={len(result.citations_used)}, model={result.model}, cost=${result.cost_usd:.6f})")
+        extra = ""
+        if use_agentic:
+            extra = f", verified={result.verified}, attempts={result.attempts}"
+        click.echo(
+            f"(grounded={result.grounded}, citations={len(result.citations_used)}, "
+            f"model={result.model}, cost=${result.cost_usd:.6f}{extra})"
+        )
 
     if question:
         _ask(question)

@@ -68,6 +68,7 @@ PID A, PID B (bytes + metadata)
    chat/index.py            BM25 retrieval over PID A + PID B + delta report,
    chat/answer.py            each chunk citation-labeled back to its exact source
    chat/llm.py               -> provider-agnostic LLM call -> cited answer
+   chat/agentic.py           (opt-in) LangGraph: + verify-citations -> retry
 ```
 
 Everything below `CanonicalDocument` — alignment, delta, report, retrieval, chat —
@@ -189,6 +190,49 @@ card) is genuinely free within its rate limits. `GroqProvider` is just
 (`llama-3.3-70b-versatile`) — no separate integration code, same
 citations/grounding/tracing behavior as the paid providers. Set
 `LLM_PROVIDER=groq` + `GROQ_API_KEY` in `.env`.
+
+### Agentic mode (LangGraph)
+
+`chat/answer.py` above is one retrieve → LLM → parse-citations round trip: it
+trusts whatever citations the LLM attaches to its answer. `chat/agentic.py`
+is an additive alternative — a small LangGraph `StateGraph` that adds one
+real self-correction step on top:
+
+```
+retrieve -> generate -> verify_citations -+-> END (verified, or a clean hedge)
+               ^                          |
+               +---- widen + retry <------+  (citation not among retrieved evidence)
+```
+
+**What verification actually checks**: every bracketed citation label the LLM
+used (`[pid_a:...]`, `[delta:...]`) must belong to a chunk that was really
+retrieved for this question. An LLM can produce a citation that's
+well-formed but not grounded in anything retrieved — right shape, wrong (or
+no) source — which the simple pipeline has no way to notice since it only
+checks that *a* citation-shaped string is present. On a failed verification,
+retrieval is widened (3x `top_k`, half `min_score`) and the question is
+re-answered, up to `AGENTIC_MAX_RETRIES` (default 2) times, before returning
+the last answer produced with `verified=False` rather than looping forever.
+
+This is genuinely additive, not a rename of the same logic: `chat/llm.py`
+still owns every provider integration, the mock/no-key fallback, and cost
+telemetry, unchanged. `chat/langchain_llm.py` adds one seam —
+`ProviderBackedChatModel`, a LangChain `BaseChatModel` that delegates
+`_generate` straight to `LLMProvider.complete` — so the LangGraph nodes get
+a message-based interface without a second, competing LLM integration.
+
+Opt in via:
+- CLI: `python -m src.cli chat <pid_a> <pid_b> --agentic -q "..."`
+- API: `POST /api/chat` with `"agentic": true` in the JSON body
+- Globally: `CHAT_BACKEND=agentic` in `.env` (both call sites default to this
+  when the flag/field is omitted)
+
+`AnswerResult` gains `verified: bool` and `attempts: int` in this mode
+(`AgenticAnswerResult`, a strict superset — `chat/answer.py` and its callers
+are untouched). Covered by `tests/test_agentic_chat.py` (happy path,
+hallucinated-citation retry-then-give-up, provider-failure degradation, and
+the no-evidence hedge) and by `scripts/checks/check_chat.py` against
+whichever real provider is configured.
 
 ## Observability
 
@@ -468,7 +512,8 @@ Regenerate both with `make samples` (`python -m data.samples.build_synthetic_pai
 (`RETRIEVAL_BACKEND=vector`/`hybrid`, `Embedder`/`VectorStore` interfaces —
 still optional, BM25 stays the tag/code-dominated-corpus default) and
 Prometheus/Grafana (`make infra-up` — see "Observability") — both landed in
-v2.0.0.
+v2.0.0. Agentic chat (`chat/agentic.py`, LangGraph retrieve → verify → retry,
+`CHAT_BACKEND=agentic` — see "Agentic mode") landed alongside this.
 
 ## What's next with more time
 
@@ -490,6 +535,10 @@ v2.0.0.
 7. `GcsBlobStore` to match the GCS bucket Terraform already provisions.
 8. Actually apply the Terraform and deploy the Kubernetes manifests to a real
    GKE cluster, replacing `REPLACE_ME` secrets with real Secret Manager values.
+9. Run the eval harness through the agentic pipeline too (currently
+   `eval/run_eval.py` only exercises `chat/answer.py`), so citation-accuracy
+   and groundedness scores can be compared simple-vs-agentic side by side
+   instead of only spot-checked via `scripts/checks/check_chat.py`.
 
 ## Config
 
